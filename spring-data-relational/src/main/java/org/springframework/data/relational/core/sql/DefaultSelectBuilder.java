@@ -335,6 +335,12 @@ class DefaultSelectBuilder implements SelectBuilder, SelectAndFrom, SelectFromAn
 		}
 
 		@Override
+		public SelectOn fullOuterJoin(TableLike table) {
+			selectBuilder.join(finishJoin());
+			return selectBuilder.fullOuterJoin(table);
+		}
+
+		@Override
 		public SelectFromAndJoin limitOffset(long limit, long offset) {
 			selectBuilder.join(finishJoin());
 			return selectBuilder.limitOffset(limit, offset);
