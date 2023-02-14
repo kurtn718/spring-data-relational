@@ -161,20 +161,21 @@ public class AnalyticStructureBuilderTests {
 			AnalyticStructureBuilder<String, String>.Select select = builder.getSelect();
 
 			assertThat(builder) //
-//					.hasExactColumns( //
-//							"grannyId", "grannyName", //
-//							fk("parent", "grannyId"), //
-//							max("grannyId", fk("parent", "grannyId")), //
-//							rn(fk("parent", "grannyId")), //
-//							max(lit(1), rn(fk("parent", "grannyId"))), //
-//							"parentId", "parentName", //
-//							fk("child", "parentId"), //
-//							max("parentId", fk("child", "parentId")), //
+					.hasExactColumns( //
+							"grannyId", "grannyName", //
+							fk("parent", "grannyId"), //
+							max("grannyId", fk("parent", "grannyId")), //
+							rn(fk("parent", "grannyId")), //
+							max(lit(1), rn(fk("parent", "grannyId"))), //
+							"parentId", "parentName", //
+							fk("child", "parentId"), //
+							max("parentId", fk("child", "parentId")), //
 //							rn(fk("child", "parentId")), // <-- not found
 //							max(lit(1), rn(fk("child", "parentId"))), // <-- not found
-//							"childName" //
-//					) //
-//					.hasId("grannyId") //
+							max(rn(fk("parent", "grannyId")), rn(fk("child", "parentId"))), // <-- currently produced
+							"childName" //
+					) //
+					.hasId("grannyId") //
 					.hasStructure( //
 							aj( //
 									td("granny"), //
@@ -185,7 +186,8 @@ public class AnalyticStructureBuilderTests {
 											eq(lit(1), rn(fk("child", "parentId"))) //
 									), //
 									eq("grannyId", fk("parent", "grannyId")), //
-									eq(lit(1), rn(fk("parent", "grannyId"))) // TODO: should be: eq(lit(1), max(lit(1),rn(fk("parent", "grannyId")))
+									//eq(lit(1), rn(fk("parent", "grannyId"))) // old / wrong
+									eq(lit(1), eq(lit(1), max(lit(1), rn(fk("child", "parentId"))))) // corrected
 							) //
 					);
 		}
