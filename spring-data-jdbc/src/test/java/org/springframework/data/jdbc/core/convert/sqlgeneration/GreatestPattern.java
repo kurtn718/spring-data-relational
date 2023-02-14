@@ -17,32 +17,32 @@ package org.springframework.data.jdbc.core.convert.sqlgeneration;
 
 import org.springframework.lang.Nullable;
 
-record MaxPattern<C> (Pattern left, Pattern right) implements Pattern {
+record GreatestPattern<C> (Pattern left, Pattern right) implements Pattern {
 
-	public static <C> MaxPattern<C> max(C left, Pattern right) {
-		return new MaxPattern(left instanceof Pattern leftPattern ? leftPattern : new BasePattern(left), right);
+	public static <C> GreatestPattern<C> greatest(C left, Pattern right) {
+		return new GreatestPattern(left instanceof Pattern leftPattern ? leftPattern : new BasePattern(left), right);
 	}
 
 	@Override
 	public boolean matches(AnalyticStructureBuilder<?, ?>.Select select,
 			AnalyticStructureBuilder<?, ?>.AnalyticColumn actualColumn) {
 
-		AnalyticStructureBuilder<?, ?>.Max max = extractMax(actualColumn);
-		return max != null && left.matches(select, max.left) && right.matches(select, max.right);
+		AnalyticStructureBuilder<?, ?>.Greatest greatest = extractGreatest(actualColumn);
+		return greatest != null && left.matches(select, greatest.left) && right.matches(select, greatest.right);
 	}
 
 	@Override
 	public String render() {
-		return "MAX(%s, %s)".formatted(left.render(), right.render());
+		return "GREATEST(%s, %s)".formatted(left.render(), right.render());
 	}
 
 	@Nullable
-	private AnalyticStructureBuilder.Max extractMax(AnalyticStructureBuilder<?, ?>.AnalyticColumn other) {
-		return AnalyticStructureBuilderSelectAssert.extract(AnalyticStructureBuilder.Max.class, other);
+	private AnalyticStructureBuilder.Greatest extractGreatest(AnalyticStructureBuilder<?, ?>.AnalyticColumn other) {
+		return AnalyticStructureBuilderSelectAssert.extract(AnalyticStructureBuilder.Greatest.class, other);
 	}
 
 	@Override
 	public String toString() {
-		return "Max(" + left + ", " + right + ')';
+		return "Greatest(" + left + ", " + right + ')';
 	}
 }

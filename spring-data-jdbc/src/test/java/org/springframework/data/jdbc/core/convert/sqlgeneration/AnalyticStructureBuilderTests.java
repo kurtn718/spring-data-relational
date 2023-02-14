@@ -21,7 +21,7 @@ import static org.springframework.data.jdbc.core.convert.sqlgeneration.AnalyticV
 import static org.springframework.data.jdbc.core.convert.sqlgeneration.ConditionPattern.*;
 import static org.springframework.data.jdbc.core.convert.sqlgeneration.ForeignKeyPattern.*;
 import static org.springframework.data.jdbc.core.convert.sqlgeneration.LiteralPattern.*;
-import static org.springframework.data.jdbc.core.convert.sqlgeneration.MaxPattern.*;
+import static org.springframework.data.jdbc.core.convert.sqlgeneration.GreatestPattern.*;
 import static org.springframework.data.jdbc.core.convert.sqlgeneration.RowNumberPattern.*;
 import static org.springframework.data.jdbc.core.convert.sqlgeneration.TableDefinitionPattern.*;
 
@@ -73,9 +73,9 @@ public class AnalyticStructureBuilderTests {
 				"parentId", "parent-value", "parent-lastname", //
 				"child-value", "child-lastname", //
 				fk("child", "parentId"), //
-				max("parentId", fk("child", "parentId")), //
+				greatest("parentId", fk("child", "parentId")), //
 				rn(fk("child", "parentId")), //
-				max(lit(1), rn(fk("child", "parentId"))) //
+				greatest(lit(1), rn(fk("child", "parentId"))) //
 		).hasId("parentId") //
 				.hasStructure(aj(td("parent"), av(td("child")), //
 						eq("parentId", fk("child", "parentId")), // <-- should fail due to wrong column value
@@ -93,9 +93,9 @@ public class AnalyticStructureBuilderTests {
 		assertThat(builder) //
 				.hasExactColumns("parentId", "parentName", "parentLastname", //
 						fk("child", "parentId"), //
-						max("parentId", fk("child", "parentId")), //
+						greatest("parentId", fk("child", "parentId")), //
 						rn(fk("child", "parentId")), //
-						max(lit(1), rn(fk("child", "parentId"))), //
+						greatest(lit(1), rn(fk("child", "parentId"))), //
 						"childKey", "childName", "childLastname") //
 				.hasId("parentId") //
 				.hasStructure( //
@@ -118,20 +118,20 @@ public class AnalyticStructureBuilderTests {
 
 		AnalyticStructureBuilder<String, String>.Select select = builder.getSelect();
 
-		MaxPattern<LiteralPattern> rnChild1 = max(lit(1), rn(fk("child1", "parentId")));
+		GreatestPattern<LiteralPattern> rnChild1 = greatest(lit(1), rn(fk("child1", "parentId")));
 
 		assertThat(builder) //
 				.hasExactColumns("parentId", "parentName", "parentLastname", //
 						fk("child1", "parentId"), //
-						max("parentId", fk("child1", "parentId")), //
+						greatest("parentId", fk("child1", "parentId")), //
 						rn(fk("child1", "parentId")), //
 						rnChild1, //
 						"childName", "childLastname", //
 
 						fk("child2", "parentId"), //
-						max("parentId", fk("child2", "parentId")), //
+						greatest("parentId", fk("child2", "parentId")), //
 						rn(fk("child2", "parentId")), //
-						max(rnChild1, rn(fk("child2", "parentId"))), //
+						greatest(rnChild1, rn(fk("child2", "parentId"))), //
 						"siblingName", //
 						"siblingLastName")
 				.hasId("parentId") //
@@ -162,18 +162,27 @@ public class AnalyticStructureBuilderTests {
 
 			assertThat(builder) //
 					.hasExactColumns( //
-							"grannyId", "grannyName", //
-							fk("parent", "grannyId"), //
-							max("grannyId", fk("parent", "grannyId")), //
-							rn(fk("parent", "grannyId")), //
-							max(lit(1), rn(fk("parent", "grannyId"))), //
+							// child
+							"childName", //
+							fk("child", "parentId"), // join by FK
+							rn(fk("child", "parentId")), // join by RN <-- not found, but really should be there
+
+
+							// parent
 							"parentId", "parentName", //
-							fk("child", "parentId"), //
-							max("parentId", fk("child", "parentId")), //
-//							rn(fk("child", "parentId")), // <-- not found
-//							max(lit(1), rn(fk("child", "parentId"))), // <-- not found
-							max(rn(fk("parent", "grannyId")), rn(fk("child", "parentId"))), // <-- currently produced
-							"childName" //
+							fk("parent", "grannyId"), // join
+
+							// child + parent
+							greatest("parentId", fk("child", "parentId")), // completed parentId for joining with granny, only necessary for joining with further children?
+							greatest(lit(1), rn(fk("child", "parentId"))), // completed RN for joining with granny
+							maxOver(fk("parent", "grannyId"), greatest("parentId", fk("child", "parentId"))),
+
+							// granny table
+							"grannyId", "grannyName", //
+							// (parent + child) --> granny
+							greatest("grannyId", maxOver(fk("parent", "grannyId"), greatest("parentId", fk("child", "parentId")))), // completed grannyId
+							greatest(lit(1), greatest(lit(1), rn(fk("child", "parentId")))) // completed RN for granny.
+
 					) //
 					.hasId("grannyId") //
 					.hasStructure( //
@@ -187,7 +196,7 @@ public class AnalyticStructureBuilderTests {
 									), //
 									eq("grannyId", fk("parent", "grannyId")), //
 									//eq(lit(1), rn(fk("parent", "grannyId"))) // old / wrong
-									eq(lit(1), eq(lit(1), max(lit(1), rn(fk("child", "parentId"))))) // corrected
+									eq(lit(1), maxOver(fk("parent", "grannyId"), greatest("parentId", fk("child", "parentId")))) // corrected
 							) //
 					);
 		}
@@ -222,14 +231,14 @@ public class AnalyticStructureBuilderTests {
 			assertThat(builder).hasExactColumns( //
 					"grannyId", "grannyName", //
 					fk("parent", "grannyId"), //
-					max("grannyId", fk("parent", "grannyId")), //
+					greatest("grannyId", fk("parent", "grannyId")), //
 					rn(fk("parent", "grannyId")), //
-					max(lit(1), rn(fk("parent", "grannyId"))), //
+					greatest(lit(1), rn(fk("parent", "grannyId"))), //
 					"parentId", "parentKey", "parentName", //
 					fk("child", "parentId"), //
-					max("parentId", fk("child", "parentId")), //
+					greatest("parentId", fk("child", "parentId")), //
 					rn(fk("child", "parentId")), //
-					max(lit(1), rn(fk("child", "parentId"))), //
+					greatest(lit(1), rn(fk("child", "parentId"))), //
 					"childName" //
 			) //
 					.hasId("grannyId") //
@@ -261,17 +270,17 @@ public class AnalyticStructureBuilderTests {
 			assertThat(builder).hasExactColumns( //
 					"grannyId", "grannyName", //
 					fk("parent", "grannyId"), //
-					max("grannyId", fk("parent", "grannyId")), //
+					greatest("grannyId", fk("parent", "grannyId")), //
 					rn(fk("parent", "grannyId")), //
-					max(lit(1), rn(fk("parent", "grannyId"))), //
+					greatest(lit(1), rn(fk("parent", "grannyId"))), //
 					"parentKey", "parentName", //
 
 					fk("child", fk("parent", "grannyId")), //
-					max(fk("parent", "grannyId"), fk("child", fk("parent", "grannyId"))), //
+					greatest(fk("parent", "grannyId"), fk("child", fk("parent", "grannyId"))), //
 					fk("child", "parentKey"), //
-					max("parentKey", fk("child", "parentKey")), //
+					greatest("parentKey", fk("child", "parentKey")), //
 					rn(fk("child", fk("parent", "grannyId")), fk("child", "parentKey")), //
-					max(lit(1), rn(fk("child", fk("parent", "grannyId")), fk("child", "parentKey"))), //
+					greatest(lit(1), rn(fk("child", fk("parent", "grannyId")), fk("child", "parentKey"))), //
 					"childName" //
 			) //
 					.hasId("grannyId") //
@@ -304,14 +313,14 @@ public class AnalyticStructureBuilderTests {
 			assertThat(builder).hasExactColumns( //
 					"grannyId", "grannyName", //
 					fk("parent", "grannyId"), //
-					max("grannyId", fk("parent", "grannyId")), //
+					greatest("grannyId", fk("parent", "grannyId")), //
 					rn(fk("parent", "grannyId")), //
-					max(lit(1), rn(fk("parent", "grannyId"))), //
+					greatest(lit(1), rn(fk("parent", "grannyId"))), //
 					"parentId", "parentName", //
 					fk("child", "parentId"), //
-					max("parentId", fk("child", "parentId")), //
+					greatest("parentId", fk("child", "parentId")), //
 					rn(fk("child", "parentId")), //
-					max(lit(1), rn(fk("child", "parentId"))), //
+					greatest(lit(1), rn(fk("child", "parentId"))), //
 					"childName" //
 			) //
 					.hasId("grannyId") //
@@ -343,14 +352,14 @@ public class AnalyticStructureBuilderTests {
 			assertThat(builder).hasExactColumns( //
 					"grannyId", "grannyName", //
 					fk("parent", "grannyId"), //
-					max("grannyId", fk("parent", "grannyId")), // TODO: max is superfluous for single
+					greatest("grannyId", fk("parent", "grannyId")), // TODO: max is superfluous for single
 					rn(fk("parent", "grannyId")), //
-					max(lit(1), rn(fk("parent", "grannyId"))), //
+					greatest(lit(1), rn(fk("parent", "grannyId"))), //
 					"parentName", //
 					fk("child", fk("parent", "grannyId")), //
-					max(fk("parent", "grannyId"), fk("child", fk("parent", "grannyId"))), //
+					greatest(fk("parent", "grannyId"), fk("child", fk("parent", "grannyId"))), //
 					rn(fk("child", fk("parent", "grannyId"))), //
-					max(lit(1), rn(fk("child", fk("parent", "grannyId")))), //
+					greatest(lit(1), rn(fk("child", fk("parent", "grannyId")))), //
 					"childName") //
 					.hasId("grannyId") //
 					.hasStructure( //
@@ -380,32 +389,32 @@ public class AnalyticStructureBuilderTests {
 		builder.addChildTo("customer", "order", td -> td.withId("orderId").withColumns("orderName"));
 		builder.addChildTo("address", "type", td -> td.withColumns("typeName"));
 
-		MaxPattern<LiteralPattern> rnOrder = max(lit(1), rn(fk("address", "customerId")));
-		MaxPattern<LiteralPattern> rnCity = max(lit(1), rn(fk("city", "addressId")));
+		GreatestPattern<LiteralPattern> rnOrder = greatest(lit(1), rn(fk("address", "customerId")));
+		GreatestPattern<LiteralPattern> rnCity = greatest(lit(1), rn(fk("city", "addressId")));
 		assertThat(builder).hasExactColumns( //
 				"customerId", "customerName", //
 				fk("address", "customerId"), //
-				max("customerId", fk("address", "customerId")), //
+				greatest("customerId", fk("address", "customerId")), //
 				rn(fk("address", "customerId")), //
 				rnOrder, //
 				"addressId", "addressName", // <--
 
 				fk("city", "addressId"), //
-				max("addressId", fk("city", "addressId")), //
+				greatest("addressId", fk("city", "addressId")), //
 				rn(fk("city", "addressId")), //
 				rnCity, //
 				"cityName", //
 
 				fk("order", "customerId"), //
-				max("customerId", fk("order", "customerId")), //
+				greatest("customerId", fk("order", "customerId")), //
 				rn(fk("order", "customerId")), //
-				max(rnOrder, rn(fk("order", "customerId"))), //
+				greatest(rnOrder, rn(fk("order", "customerId"))), //
 				"orderId", "orderName", //
 
 				fk("type", "addressId"), //
-				max("addressId", fk("type", "addressId")), //
+				greatest("addressId", fk("type", "addressId")), //
 				rn(fk("type", "addressId")), //
-				max(rnCity, rn(fk("type", "addressId"))), //
+				greatest(rnCity, rn(fk("type", "addressId"))), //
 				"typeName"//
 		).hasId("customerId") //
 				.hasStructure( //
@@ -458,7 +467,7 @@ public class AnalyticStructureBuilderTests {
 										), //
 										av(td("office")), //
 										eq("keyAccountId", fk("office", "keyAccountId")), //
-										eq(max(lit(1), rn(fk("assistant", "keyAccountId"))), rn(fk("office", "keyAccountId"))) //
+										eq(greatest(lit(1), rn(fk("assistant", "keyAccountId"))), rn(fk("office", "keyAccountId"))) //
 								), //
 								eq("customerId", fk("keyAccount", "customerId")), //
 								eq(lit(1), rn(fk("keyAccount", "customerId"))) //
@@ -470,7 +479,7 @@ public class AnalyticStructureBuilderTests {
 								eq(lit(1), rn(fk("item", "orderId"))) //
 						), //
 						eq("customerId", fk("order", "customerId")), //
-						eq(max(lit(1), rn(fk("keyAccount", "customerId"))), rn(fk("order", "customerId"))) //
+						eq(greatest(lit(1), rn(fk("keyAccount", "customerId"))), rn(fk("order", "customerId"))) //
 				) //
 		);
 
@@ -489,52 +498,52 @@ public class AnalyticStructureBuilderTests {
 		builder.addChildTo("order", "shipment", td -> td.withColumns("shipmentName"));
 		builder.addChildTo("office", "room", td -> td.withColumns("roomNumber"));
 
-		MaxPattern<LiteralPattern> rnKeyAccount = max(lit(1), rn(fk("keyAccount", "customerId")));
-		MaxPattern<LiteralPattern> rnAssistant = max(lit(1), rn(fk("assistant", "keyAccountId")));
+		GreatestPattern<LiteralPattern> rnKeyAccount = greatest(lit(1), rn(fk("keyAccount", "customerId")));
+		GreatestPattern<LiteralPattern> rnAssistant = greatest(lit(1), rn(fk("assistant", "keyAccountId")));
 
-		MaxPattern<LiteralPattern> rnItem = max(lit(1), rn(fk("item", "orderId")));
+		GreatestPattern<LiteralPattern> rnItem = greatest(lit(1), rn(fk("item", "orderId")));
 		assertThat(builder).hasExactColumns( //
 				"customerId", "customerName", //
 				fk("keyAccount", "customerId"), //
-				max("customerId", fk("keyAccount", "customerId")), //
+				greatest("customerId", fk("keyAccount", "customerId")), //
 				rn(fk("keyAccount", "customerId")), //
 				rnKeyAccount, //
 				"keyAccountId", "keyAccountName", //
 
 				fk("assistant", "keyAccountId"), //
-				max("keyAccountId", fk("assistant", "keyAccountId")), //
+				greatest("keyAccountId", fk("assistant", "keyAccountId")), //
 				rn(fk("assistant", "keyAccountId")), //
 				rnAssistant, //
 				"assistantName", //
 
 				fk("office", "keyAccountId"), //
-				max("keyAccountId", fk("office", "keyAccountId")), //
+				greatest("keyAccountId", fk("office", "keyAccountId")), //
 				rn(fk("office", "keyAccountId")), //
-				max(rnAssistant, rn(fk("office", "keyAccountId"))), //
+				greatest(rnAssistant, rn(fk("office", "keyAccountId"))), //
 				"officeName", //
 
 				fk("order", "customerId"), //
-				max("customerId", fk("order", "customerId")), //
+				greatest("customerId", fk("order", "customerId")), //
 				rn(fk("order", "customerId")), //
-				max(rnKeyAccount, rn(fk("order", "customerId"))), //
+				greatest(rnKeyAccount, rn(fk("order", "customerId"))), //
 				"orderId", "orderName", //
 
 				fk("item", "orderId"), //
-				max("orderId", fk("item", "orderId")), //
+				greatest("orderId", fk("item", "orderId")), //
 				rn(fk("item", "orderId")), //
 				rnItem, //
 				"itemName", //
 
 				fk("shipment", "orderId"), //
-				max("orderId", fk("shipment", "orderId")), //
+				greatest("orderId", fk("shipment", "orderId")), //
 				rn(fk("shipment", "orderId")), //
-				max(rnItem, rn(fk("shipment", "orderId"))), //
+				greatest(rnItem, rn(fk("shipment", "orderId"))), //
 				"shipmentName", "officeId", //
 
 				fk("room", "officeId"), //
-				max("officeId", fk("room", "officeId")), //
+				greatest("officeId", fk("room", "officeId")), //
 				rn(fk("room", "officeId")), //
-				max(lit(1), rn(fk("room", "officeId"))), //
+				greatest(lit(1), rn(fk("room", "officeId"))), //
 				"roomNumber" //
 		).hasId("customerId") //
 				.hasStructure( //

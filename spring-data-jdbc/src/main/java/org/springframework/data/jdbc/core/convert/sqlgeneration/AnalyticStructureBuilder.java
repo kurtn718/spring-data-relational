@@ -289,7 +289,7 @@ class AnalyticStructureBuilder<T, C> {
 	class AnalyticJoin extends Select {
 
 		private final Select parent;
-		private Max rowNumber;
+		private Greatest rowNumber;
 		private Select child;
 		private final List<AnalyticColumn> columnsFromJoin = new ArrayList();
 		private final Multiplicity multiplicity;
@@ -319,8 +319,8 @@ class AnalyticStructureBuilder<T, C> {
 						conditions.add(new JoinCondition(id, foreignKey));
 						td.withForeignKey(foreignKey);
 
-						Max maxId = new Max(id, foreignKey);
-						columnsFromJoin.add(maxId);
+						Greatest greatestId = new Greatest(id, foreignKey);
+						columnsFromJoin.add(greatestId);
 					}
 					AnalyticColumn parentRowNumber = parent.getRowNumber();
 
@@ -331,7 +331,7 @@ class AnalyticStructureBuilder<T, C> {
 					}
 					conditions.add(new JoinCondition(parentRowNumber, rowNumber));
 
-					Max maxRowNumber = new Max(parentRowNumber, rowNumber);
+					Greatest maxRowNumber = new Greatest(parentRowNumber, rowNumber);
 					this.rowNumber = maxRowNumber;
 					columnsFromJoin.add(maxRowNumber);
 				}
@@ -630,12 +630,12 @@ class AnalyticStructureBuilder<T, C> {
 		}
 	}
 
-	class Max extends AnalyticColumn {
+	class Greatest extends AnalyticColumn {
 
 		final AnalyticColumn left;
 		final AnalyticColumn right;
 
-		Max(AnalyticColumn left, AnalyticColumn right) {
+		Greatest(AnalyticColumn left, AnalyticColumn right) {
 
 			this.left = left;
 			this.right = right;
@@ -656,7 +656,7 @@ class AnalyticStructureBuilder<T, C> {
 
 		@Override
 		public String toString() {
-			return "Max(" + left + ", " + right + ')';
+			return "Greatest(" + left + ", " + right + ')';
 		}
 	}
 

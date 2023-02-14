@@ -164,8 +164,8 @@ public class AnalyticStructureBuilderSelectAssert<T, C>
 			return "RN";
 		} else if (c instanceof AnalyticStructureBuilder.ForeignKey fk) {
 			return fk.toString();
-		} else if (c instanceof AnalyticStructureBuilder.Max max) {
-			return "MAX(" + toString(max.getLeft()) + ", " + toString(max.getRight()) + ")";
+		} else if (c instanceof AnalyticStructureBuilder.Greatest greatest) {
+			return "MAX(" + toString(greatest.getLeft()) + ", " + toString(greatest.getRight()) + ")";
 		} else {
 			return "unknown";
 		}
