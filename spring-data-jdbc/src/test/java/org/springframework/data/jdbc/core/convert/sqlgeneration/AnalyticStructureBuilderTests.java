@@ -22,6 +22,7 @@ import static org.springframework.data.jdbc.core.convert.sqlgeneration.Condition
 import static org.springframework.data.jdbc.core.convert.sqlgeneration.ForeignKeyPattern.*;
 import static org.springframework.data.jdbc.core.convert.sqlgeneration.LiteralPattern.*;
 import static org.springframework.data.jdbc.core.convert.sqlgeneration.GreatestPattern.*;
+import static org.springframework.data.jdbc.core.convert.sqlgeneration.MaxOverPattern.*;
 import static org.springframework.data.jdbc.core.convert.sqlgeneration.RowNumberPattern.*;
 import static org.springframework.data.jdbc.core.convert.sqlgeneration.TableDefinitionPattern.*;
 

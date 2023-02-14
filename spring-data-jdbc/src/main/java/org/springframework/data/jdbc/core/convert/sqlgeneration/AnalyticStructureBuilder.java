@@ -70,7 +70,7 @@ class AnalyticStructureBuilder<T, C> {
 		} else {
 			Select oldNode = nodeParentChain.get(0);
 			if (oldNode instanceof AnalyticJoin aj) {
-				aj.setChild(newNode); //TODO: <-- we need to recalculate all fks and stuff
+				aj.setChild(newNode); // TODO: <-- we need to recalculate all fks and stuff
 			}
 
 		}
@@ -338,7 +338,6 @@ class AnalyticStructureBuilder<T, C> {
 			} else {
 				System.out.println("wouldn't have thought we could get here");
 			}
-
 
 			this.multiplicity = multiplicity;
 
@@ -657,6 +656,36 @@ class AnalyticStructureBuilder<T, C> {
 		@Override
 		public String toString() {
 			return "Greatest(" + left + ", " + right + ')';
+		}
+	}
+
+	class MaxOver extends AnalyticColumn {
+
+		final AnalyticColumn expression;
+		final AnalyticColumn partitionBy;
+
+		MaxOver(AnalyticColumn expression, AnalyticColumn partitionBy) {
+
+			this.expression = expression;
+			this.partitionBy = partitionBy;
+		}
+
+		@Override
+		C getColumn() {
+			return null;
+		}
+
+		AnalyticColumn getExpression() {
+			return expression;
+		}
+
+		AnalyticColumn getPartitionBy() {
+			return partitionBy;
+		}
+
+		@Override
+		public String toString() {
+			return "Max(" + expression + ") over (partition by, " + partitionBy + ')';
 		}
 	}
 
