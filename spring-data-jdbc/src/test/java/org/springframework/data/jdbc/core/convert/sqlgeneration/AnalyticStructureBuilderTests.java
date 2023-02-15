@@ -20,8 +20,8 @@ import static org.springframework.data.jdbc.core.convert.sqlgeneration.AnalyticJ
 import static org.springframework.data.jdbc.core.convert.sqlgeneration.AnalyticViewPattern.*;
 import static org.springframework.data.jdbc.core.convert.sqlgeneration.ConditionPattern.*;
 import static org.springframework.data.jdbc.core.convert.sqlgeneration.ForeignKeyPattern.*;
-import static org.springframework.data.jdbc.core.convert.sqlgeneration.LiteralPattern.*;
 import static org.springframework.data.jdbc.core.convert.sqlgeneration.GreatestPattern.*;
+import static org.springframework.data.jdbc.core.convert.sqlgeneration.LiteralPattern.*;
 import static org.springframework.data.jdbc.core.convert.sqlgeneration.MaxOverPattern.*;
 import static org.springframework.data.jdbc.core.convert.sqlgeneration.RowNumberPattern.*;
 import static org.springframework.data.jdbc.core.convert.sqlgeneration.TableDefinitionPattern.*;
@@ -42,8 +42,9 @@ public class AnalyticStructureBuilderTests {
 	@Test
 	void simpleTableWithColumns() {
 
-		AnalyticStructureBuilder<String, String> builder = new AnalyticStructureBuilder<String, String>().addTable("person",
-				td -> td.withId("person_id").withColumns("value", "lastname"));
+		AnalyticStructureBuilder<String, String> builder = new AnalyticStructureBuilder<String, String>() //
+				.addTable("person", td -> td.withId("person_id").withColumns("value", "lastname")) //
+				.build();
 
 		assertThat(builder).hasExactColumns("person_id", "value", "lastname") //
 				.hasId("person_id") //
@@ -54,8 +55,9 @@ public class AnalyticStructureBuilderTests {
 	@Test
 	void simpleTableWithColumnsAddedInMultipleSteps() {
 
-		AnalyticStructureBuilder<String, String> builder = new AnalyticStructureBuilder<String, String>().addTable("person",
-				td -> td.withId("person_id").withColumns("value").withColumns("lastname"));
+		AnalyticStructureBuilder<String, String> builder = new AnalyticStructureBuilder<String, String>() //
+				.addTable("person", td -> td.withId("person_id").withColumns("value").withColumns("lastname")) //
+				.build();
 
 		assertThat(builder).hasExactColumns("person_id", "value", "lastname") //
 				.hasId("person_id") //
@@ -68,7 +70,8 @@ public class AnalyticStructureBuilderTests {
 
 		AnalyticStructureBuilder<String, String> builder = new AnalyticStructureBuilder<String, String>()
 				.addTable("parent", td -> td.withId("parentId").withColumns("parent-value", "parent-lastname"))
-				.addChildTo("parent", "child", td -> td.withColumns("child-value", "child-lastname"));
+				.addChildTo("parent", "child", td -> td.withColumns("child-value", "child-lastname")) //
+				.build();
 
 		assertThat(builder).hasExactColumns( //
 				"parentId", "parent-value", "parent-lastname", //
@@ -89,7 +92,8 @@ public class AnalyticStructureBuilderTests {
 
 		AnalyticStructureBuilder<String, String> builder = new AnalyticStructureBuilder<String, String>()
 				.addTable("parent", td -> td.withId("parentId").withColumns("parentName", "parentLastname"))
-				.addChildTo("parent", "child", td -> td.withColumns("childName", "childLastname").withKeyColumn("childKey"));
+				.addChildTo("parent", "child", td -> td.withColumns("childName", "childLastname").withKeyColumn("childKey")) //
+				.build();
 
 		assertThat(builder) //
 				.hasExactColumns("parentId", "parentName", "parentLastname", //
@@ -115,9 +119,8 @@ public class AnalyticStructureBuilderTests {
 		AnalyticStructureBuilder<String, String> builder = new AnalyticStructureBuilder<String, String>()
 				.addTable("parent", td -> td.withId("parentId").withColumns("parentName", "parentLastname"))
 				.addChildTo("parent", "child1", td -> td.withColumns("childName", "childLastname"))
-				.addChildTo("parent", "child2", td -> td.withColumns("siblingName", "siblingLastName"));
-
-		AnalyticStructureBuilder<String, String>.Select select = builder.getSelect();
+				.addChildTo("parent", "child2", td -> td.withColumns("siblingName", "siblingLastName")) //
+				.build();
 
 		GreatestPattern<LiteralPattern> rnChild1 = greatest(lit(1), rn(fk("child1", "parentId")));
 
@@ -157,9 +160,8 @@ public class AnalyticStructureBuilderTests {
 			AnalyticStructureBuilder<String, String> builder = new AnalyticStructureBuilder<String, String>()
 					.addTable("granny", td -> td.withId("grannyId").withColumns("grannyName"))
 					.addChildTo("granny", "parent", td -> td.withId("parentId").withColumns("parentName"))
-					.addChildTo("parent", "child", td -> td.withColumns("childName"));
-
-			AnalyticStructureBuilder<String, String>.Select select = builder.getSelect();
+					.addChildTo("parent", "child", td -> td.withColumns("childName")) //
+					.build();
 
 			assertThat(builder) //
 					.hasExactColumns( //
@@ -168,20 +170,21 @@ public class AnalyticStructureBuilderTests {
 							fk("child", "parentId"), // join by FK
 							rn(fk("child", "parentId")), // join by RN <-- not found, but really should be there
 
-
 							// parent
 							"parentId", "parentName", //
 							fk("parent", "grannyId"), // join
 
 							// child + parent
-							greatest("parentId", fk("child", "parentId")), // completed parentId for joining with granny, only necessary for joining with further children?
+							greatest("parentId", fk("child", "parentId")), // completed parentId for joining with granny, only
+																															// necessary for joining with further children?
 							greatest(lit(1), rn(fk("child", "parentId"))), // completed RN for joining with granny
 							maxOver(fk("parent", "grannyId"), greatest("parentId", fk("child", "parentId"))),
 
 							// granny table
 							"grannyId", "grannyName", //
 							// (parent + child) --> granny
-							greatest("grannyId", maxOver(fk("parent", "grannyId"), greatest("parentId", fk("child", "parentId")))), // completed grannyId
+							greatest("grannyId", maxOver(fk("parent", "grannyId"), greatest("parentId", fk("child", "parentId")))), // completed
+																																																											// grannyId
 							greatest(lit(1), greatest(lit(1), rn(fk("child", "parentId")))) // completed RN for granny.
 
 					) //
@@ -196,7 +199,7 @@ public class AnalyticStructureBuilderTests {
 											eq(lit(1), rn(fk("child", "parentId"))) //
 									), //
 									eq("grannyId", fk("parent", "grannyId")), //
-									//eq(lit(1), rn(fk("parent", "grannyId"))) // old / wrong
+									// eq(lit(1), rn(fk("parent", "grannyId"))) // old / wrong
 									eq(lit(1), maxOver(fk("parent", "grannyId"), greatest("parentId", fk("child", "parentId")))) // corrected
 							) //
 					);
@@ -212,7 +215,8 @@ public class AnalyticStructureBuilderTests {
 			AnalyticStructureBuilder<String, String> builder = new AnalyticStructureBuilder<String, String>()
 					.addTable("granny", td -> td.withId("grannyId").withColumns("grannyName"))
 					.addChildTo("granny", "parent", td -> td.withColumns("parentName"))
-					.addChildTo("parent", "child", td -> td.withColumns("childName"));
+					.addChildTo("parent", "child", td -> td.withColumns("childName")) //
+					.build();
 
 			builder.getSelect();
 			// }); // TODO: this should throw an exception.
@@ -264,7 +268,8 @@ public class AnalyticStructureBuilderTests {
 			AnalyticStructureBuilder<String, String> builder = new AnalyticStructureBuilder<String, String>()
 					.addTable("granny", td -> td.withId("grannyId").withColumns("grannyName"))
 					.addChildTo("granny", "parent", td -> td.withColumns("parentName").withKeyColumn("parentKey"))
-					.addChildTo("parent", "child", td -> td.withColumns("childName"));
+					.addChildTo("parent", "child", td -> td.withColumns("childName")) //
+					.build();
 
 			AnalyticStructureBuilder<String, String>.Select select = builder.getSelect();
 
@@ -307,9 +312,8 @@ public class AnalyticStructureBuilderTests {
 			AnalyticStructureBuilder<String, String> builder = new AnalyticStructureBuilder<String, String>()
 					.addTable("granny", td -> td.withId("grannyId").withColumns("grannyName"))
 					.addSingleChildTo("granny", "parent", td -> td.withId("parentId").withColumns("parentName"))
-					.addChildTo("parent", "child", td -> td.withColumns("childName"));
-
-			AnalyticStructureBuilder<String, String>.Select select = builder.getSelect();
+					.addChildTo("parent", "child", td -> td.withColumns("childName")) //
+					.build();
 
 			assertThat(builder).hasExactColumns( //
 					"grannyId", "grannyName", //
@@ -346,9 +350,8 @@ public class AnalyticStructureBuilderTests {
 			AnalyticStructureBuilder<String, String> builder = new AnalyticStructureBuilder<String, String>()
 					.addTable("granny", td -> td.withId("grannyId").withColumns("grannyName"))
 					.addSingleChildTo("granny", "parent", td -> td.withColumns("parentName"))
-					.addChildTo("parent", "child", td -> td.withColumns("childName"));
-
-			AnalyticStructureBuilder.Select select = builder.getSelect();
+					.addChildTo("parent", "child", td -> td.withColumns("childName")) //
+					.build();
 
 			assertThat(builder).hasExactColumns( //
 					"grannyId", "grannyName", //
@@ -383,12 +386,13 @@ public class AnalyticStructureBuilderTests {
 	@Test
 	void mediumComplexHierarchy() {
 
-		AnalyticStructureBuilder<String, String> builder = new AnalyticStructureBuilder<String, String>()
-				.addTable("customer", td -> td.withId("customerId").withColumns("customerName"));
-		builder.addChildTo("customer", "address", td -> td.withId("addressId").withColumns("addressName"));
-		builder.addChildTo("address", "city", td -> td.withColumns("cityName"));
-		builder.addChildTo("customer", "order", td -> td.withId("orderId").withColumns("orderName"));
-		builder.addChildTo("address", "type", td -> td.withColumns("typeName"));
+		AnalyticStructureBuilder<String, String> builder = new AnalyticStructureBuilder<String, String>() //
+				.addTable("customer", td -> td.withId("customerId").withColumns("customerName")) //
+				.addChildTo("customer", "address", td -> td.withId("addressId").withColumns("addressName")) //
+				.addChildTo("address", "city", td -> td.withColumns("cityName")) //
+				.addChildTo("customer", "order", td -> td.withId("orderId").withColumns("orderName")) //
+				.addChildTo("address", "type", td -> td.withColumns("typeName")) //
+				.build();
 
 		GreatestPattern<LiteralPattern> rnOrder = greatest(lit(1), rn(fk("address", "customerId")));
 		GreatestPattern<LiteralPattern> rnCity = greatest(lit(1), rn(fk("city", "addressId")));
@@ -447,13 +451,14 @@ public class AnalyticStructureBuilderTests {
 	@Test
 	void mediumComplexHierarchy2() {
 
-		AnalyticStructureBuilder<String, String> builder = new AnalyticStructureBuilder<String, String>()
-				.addTable("customer", td -> td.withId("customerId").withColumns("customerName"));
-		builder.addChildTo("customer", "keyAccount", td -> td.withId("keyAccountId").withColumns("keyAccountName"));
-		builder.addChildTo("keyAccount", "assistant", td -> td.withColumns("assistantName"));
-		builder.addChildTo("customer", "order", td -> td.withId("orderId").withColumns("orderName"));
-		builder.addChildTo("keyAccount", "office", td -> td.withColumns("officeName"));
-		builder.addChildTo("order", "item", td -> td.withId("itemId").withColumns("itemName"));
+		AnalyticStructureBuilder<String, String> builder = new AnalyticStructureBuilder<String, String>() //
+				.addTable("customer", td -> td.withId("customerId").withColumns("customerName")) //
+				.addChildTo("customer", "keyAccount", td -> td.withId("keyAccountId").withColumns("keyAccountName")) //
+				.addChildTo("keyAccount", "assistant", td -> td.withColumns("assistantName")) //
+				.addChildTo("customer", "order", td -> td.withId("orderId").withColumns("orderName")) //
+				.addChildTo("keyAccount", "office", td -> td.withColumns("officeName")) //
+				.addChildTo("order", "item", td -> td.withId("itemId").withColumns("itemName")) //
+				.build();
 
 		assertThat(builder).hasStructure( //
 				aj( //
@@ -489,15 +494,16 @@ public class AnalyticStructureBuilderTests {
 	@Test
 	void complexHierarchy() {
 
-		AnalyticStructureBuilder<String, String> builder = new AnalyticStructureBuilder<String, String>()
-				.addTable("customer", td -> td.withId("customerId").withColumns("customerName"));
-		builder.addChildTo("customer", "keyAccount", td -> td.withId("keyAccountId").withColumns("keyAccountName"));
-		builder.addChildTo("keyAccount", "assistant", td -> td.withColumns("assistantName"));
-		builder.addChildTo("customer", "order", td -> td.withId("orderId").withColumns("orderName"));
-		builder.addChildTo("keyAccount", "office", td -> td.withId("officeId").withColumns("officeName"));
-		builder.addChildTo("order", "item", td -> td.withColumns("itemName"));
-		builder.addChildTo("order", "shipment", td -> td.withColumns("shipmentName"));
-		builder.addChildTo("office", "room", td -> td.withColumns("roomNumber"));
+		AnalyticStructureBuilder<String, String> builder = new AnalyticStructureBuilder<String, String>() //
+				.addTable("customer", td -> td.withId("customerId").withColumns("customerName")) //
+				.addChildTo("customer", "keyAccount", td -> td.withId("keyAccountId").withColumns("keyAccountName")) //
+				.addChildTo("keyAccount", "assistant", td -> td.withColumns("assistantName")) //
+				.addChildTo("customer", "order", td -> td.withId("orderId").withColumns("orderName")) //
+				.addChildTo("keyAccount", "office", td -> td.withId("officeId").withColumns("officeName")) //
+				.addChildTo("order", "item", td -> td.withColumns("itemName")) //
+				.addChildTo("order", "shipment", td -> td.withColumns("shipmentName")) //
+				.addChildTo("office", "room", td -> td.withColumns("roomNumber")) //
+				.build();
 
 		GreatestPattern<LiteralPattern> rnKeyAccount = greatest(lit(1), rn(fk("keyAccount", "customerId")));
 		GreatestPattern<LiteralPattern> rnAssistant = greatest(lit(1), rn(fk("assistant", "keyAccountId")));
@@ -590,23 +596,5 @@ public class AnalyticStructureBuilderTests {
 
 	// TODO: Joins must contain the fields to join on:
 	// - rownumber
-
-	private Set<AnalyticStructureBuilder<String, Integer>.TableDefinition> collectFroms(
-			AnalyticStructureBuilder<String, Integer>.Select select) {
-
-		Set<AnalyticStructureBuilder<String, Integer>.TableDefinition> froms = new HashSet<>();
-		select.getFroms().forEach(s -> {
-			if (s instanceof AnalyticStructureBuilder.AnalyticJoin) {
-				froms.addAll(collectFroms(s));
-			} else if (s instanceof AnalyticStructureBuilder.AnalyticView) {
-
-				froms.add((AnalyticStructureBuilder.TableDefinition) s.getFroms().get(0));
-			} else {
-				froms.add((AnalyticStructureBuilder.TableDefinition) s);
-			}
-		});
-
-		return froms;
-	}
 
 }

@@ -156,6 +156,10 @@ class AnalyticStructureBuilder<T, C> {
 		return nodeRoot;
 	}
 
+	public AnalyticStructureBuilder<T, C> build() {
+		return this;
+	}
+
 	abstract class Select {
 
 		abstract List<? extends AnalyticColumn> getColumns();
