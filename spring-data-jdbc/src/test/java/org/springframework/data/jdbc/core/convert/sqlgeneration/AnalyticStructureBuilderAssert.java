@@ -26,11 +26,11 @@ import org.assertj.core.api.AbstractAssert;
  * @param <C>
  */
 public class AnalyticStructureBuilderAssert<T, C>
-		extends AbstractAssert<AnalyticStructureBuilderAssert<T, C>, AnalyticStructureBuilder<T, C>> {
+		extends AbstractAssert<AnalyticStructureBuilderAssert<T, C>, AnalyticStructure<T, C>> {
 
 	private final AnalyticStructureBuilderSelectAssert selectAssert;
 
-	AnalyticStructureBuilderAssert(AnalyticStructureBuilder<T, C> actual) {
+	AnalyticStructureBuilderAssert(AnalyticStructure<T, C> actual) {
 
 		super(actual, AnalyticStructureBuilderAssert.class);
 

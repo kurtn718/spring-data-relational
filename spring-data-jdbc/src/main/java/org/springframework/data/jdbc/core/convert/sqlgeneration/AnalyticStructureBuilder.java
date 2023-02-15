@@ -42,7 +42,7 @@ import org.springframework.util.Assert;
  * join {@literal node} is the {@literal nodeParent} of purchase order and line item.</li>
  * </ol>
  */
-class AnalyticStructureBuilder<T, C> {
+class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 
 	/** The select that is getting build */
 	private Select nodeRoot;
@@ -152,11 +152,12 @@ class AnalyticStructureBuilder<T, C> {
 		return tableDefinitionConfiguration.apply(new TableDefinition(table));
 	}
 
-	Select getSelect() {
+	@Override
+	public Select getSelect() {
 		return nodeRoot;
 	}
 
-	public AnalyticStructureBuilder<T, C> build() {
+	public AnalyticStructure<T, C> build() {
 		return this;
 	}
 
