@@ -158,7 +158,13 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 	}
 
 	public AnalyticStructure<T, C> build() {
+		System.out.println("--------------    build --------------------");
+		buildForeignKeys();
 		return this;
+	}
+
+	private void buildForeignKeys() {
+		nodeRoot.buildForeignKeys(null, new ArrayList<>());
 	}
 
 	abstract class Select {
@@ -179,11 +185,14 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 		protected void setRowNumber(AnalyticColumn rowNumber) {
 			throw new UnsupportedOperationException("Can't set a rownumber");
 		}
+
+		abstract void buildForeignKeys(TableDefinition parent, List<AnalyticColumn> keyColumns);
+
+		abstract List<ForeignKey> getForeignKey();
 	}
 
 	abstract class SingleTableSelect extends Select {
 
-		abstract List<ForeignKey> getForeignKey();
 	}
 
 	class TableDefinition extends SingleTableSelect {
@@ -280,6 +289,16 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 			return table;
 		}
 
+		@Override
+		public void buildForeignKeys(TableDefinition parent, List<AnalyticColumn> keyColumns) {
+
+			keyColumns.stream().map(c -> {
+				ForeignKey fk = new ForeignKey(c);
+				fk.setOwner(parent);
+				return fk;
+			}).forEach(foreignKey::add);
+		}
+
 		T getTable() {
 			return table;
 		}
@@ -304,46 +323,7 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 		AnalyticJoin(Select parent, Select child, Multiplicity multiplicity) {
 
 			this.parent = unwrapParent(parent);
-
 			this.child = wrapChildInView(child);
-
-			TableDefinition td = extractTableDefinition(child);
-			if (td != null) {
-
-				if (parent.getId().isEmpty()) {
-					throw new IllegalStateException("a child element without key or id can't have further children");
-				} else {
-
-					List<AnalyticColumn> idColumns = parent.getId();
-					List<ForeignKey> foreignKeys = new ArrayList<>();
-					for (AnalyticColumn id : idColumns) {
-
-						Assert.notNull(id, "id must not be null");
-						ForeignKey foreignKey = new ForeignKey(id);
-						foreignKeys.add(foreignKey);
-						conditions.add(new JoinCondition(id, foreignKey));
-						td.withForeignKey(foreignKey);
-
-						Greatest greatestId = new Greatest(id, foreignKey);
-						columnsFromJoin.add(greatestId);
-					}
-					AnalyticColumn parentRowNumber = parent.getRowNumber();
-
-					AnalyticColumn rowNumber = this.child.getRowNumber();
-					if (rowNumber == null) {
-						rowNumber = new RowNumber(foreignKeys);
-						this.child.setRowNumber(rowNumber);
-					}
-					conditions.add(new JoinCondition(parentRowNumber, rowNumber));
-
-					Greatest maxRowNumber = new Greatest(parentRowNumber, rowNumber);
-					this.rowNumber = maxRowNumber;
-					columnsFromJoin.add(maxRowNumber);
-				}
-			} else {
-				System.out.println("wouldn't have thought we could get here");
-			}
-
 			this.multiplicity = multiplicity;
 
 			nodeParentLookUp.put(this.parent, this);
@@ -418,6 +398,18 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 		@Override
 		protected AnalyticColumn getRowNumber() {
 			return rowNumber != null ? rowNumber : super.getRowNumber();
+		}
+
+		@Override
+		public void buildForeignKeys(TableDefinition parent, List<AnalyticColumn> keyColumns) {
+
+			this.parent.buildForeignKeys(parent, keyColumns);
+			child.buildForeignKeys(extractTableDefinition(this.parent),  this.parent.getId()); // TODO add keys and possibly foreign keys, if no id is present.
+		}
+
+		@Override
+		List<ForeignKey> getForeignKey() {
+			return parent.getForeignKey();
 		}
 
 		@Override
@@ -517,6 +509,11 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 		@Override
 		protected void setRowNumber(AnalyticColumn rowNumber) {
 			this.rowNumber = rowNumber;
+		}
+
+		@Override
+		public void buildForeignKeys(TableDefinition parent, List<AnalyticColumn> keyColumns) {
+			table.buildForeignKeys(parent, keyColumns);
 		}
 
 		@Override
