@@ -330,6 +330,8 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 		private final Select parent;
 		private Greatest rowNumber;
 		private Select child;
+
+		// TODO: this is really more of an effective id. Make sure to keep the rownumber separately
 		private final List<AnalyticColumn> columnsFromJoin = new ArrayList();
 		private final Multiplicity multiplicity;
 
@@ -392,7 +394,7 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 		}
 
 		@Override
-		public List<AnalyticColumn> getId() {
+		 List<AnalyticColumn> getId() {
 			return parent.getId().stream().map(column -> (AnalyticColumn) new DerivedColumn(column)).toList();
 		}
 
@@ -421,7 +423,7 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 			this.parent.buildForeignKeys(parent, keyColumns);
 			child.buildForeignKeys(extractTableDefinition(this.parent), this.parent.getId()); // TODO add keys and possibly
 																																												// foreign keys, if no id is
-																																												// present.
+			child.getForeignKey().forEach(fk -> columnsFromJoin.add(new Greatest(fk.getForeignKeyColumn(), fk)));                                                                                                                                                                    // present.
 		}
 
 		@Override
