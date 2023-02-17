@@ -29,6 +29,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
+import org.springframework.util.JdkIdGenerator;
 
 /**
  * Builds the structure of an analytic query. The structure contains arbitrary objects for tables and columns. There are
@@ -421,9 +422,13 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 		public void buildForeignKeys(TableDefinition parent, List<AnalyticColumn> keyColumns) {
 
 			this.parent.buildForeignKeys(parent, keyColumns);
+			// foreign keys, if no id is present ꜜ
 			child.buildForeignKeys(extractTableDefinition(this.parent), this.parent.getId()); // TODO add keys and possibly
-																																												// foreign keys, if no id is
-			child.getForeignKey().forEach(fk -> columnsFromJoin.add(new Greatest(fk.getForeignKeyColumn(), fk)));                                                                                                                                                                    // present.
+			child.getForeignKey().forEach(fk -> {
+				AnalyticColumn parentId = fk.getForeignKeyColumn();
+				columnsFromJoin.add(new Greatest(parentId, fk));
+				conditions.add(new JoinCondition(parentId, fk));
+			});
 		}
 
 		@Override
@@ -438,6 +443,7 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 			child.buildRowNumbers();
 
 			rowNumber = new Greatest(parent.getRowNumber(), child.getRowNumber());
+			conditions.add(new JoinCondition(parent.getRowNumber(), child.getRowNumber()));
 
 		}
 
