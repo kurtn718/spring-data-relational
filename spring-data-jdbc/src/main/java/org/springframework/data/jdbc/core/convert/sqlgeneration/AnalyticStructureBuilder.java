@@ -158,9 +158,16 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 	}
 
 	public AnalyticStructure<T, C> build() {
+
 		System.out.println("--------------    build --------------------");
 		buildForeignKeys();
+		buildRowNumbers();
+
 		return this;
+	}
+
+	private void buildRowNumbers() {
+		nodeRoot.buildRowNumbers();
 	}
 
 	private void buildForeignKeys() {
@@ -189,6 +196,8 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 		abstract void buildForeignKeys(TableDefinition parent, List<AnalyticColumn> keyColumns);
 
 		abstract List<ForeignKey> getForeignKey();
+
+		abstract void buildRowNumbers();
 	}
 
 	abstract class SingleTableSelect extends Select {
@@ -252,6 +261,11 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 		}
 
 		@Override
+		void buildRowNumbers() {
+			// tables don't have rownumbers, they are added in a view and propagated through joins
+		}
+
+		@Override
 		public List<? extends AnalyticColumn> getColumns() {
 
 			List<AnalyticColumn> allColumns = new ArrayList<>(columns);
@@ -290,11 +304,12 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 		}
 
 		@Override
+		// TODO parent seems to be superfluous
 		public void buildForeignKeys(TableDefinition parent, List<AnalyticColumn> keyColumns) {
 
 			keyColumns.stream().map(c -> {
 				ForeignKey fk = new ForeignKey(c);
-				fk.setOwner(parent);
+				fk.setOwner(this);
 				return fk;
 			}).forEach(foreignKey::add);
 		}
@@ -372,7 +387,7 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 			parent.getColumns().forEach(c -> result.add(new DerivedColumn(c)));
 			child.getColumns().forEach(c -> result.add(new DerivedColumn(c)));
 			columnsFromJoin.forEach(c -> result.add(new DerivedColumn(c)));
-
+			result.add(rowNumber);
 			return result;
 		}
 
@@ -404,12 +419,24 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 		public void buildForeignKeys(TableDefinition parent, List<AnalyticColumn> keyColumns) {
 
 			this.parent.buildForeignKeys(parent, keyColumns);
-			child.buildForeignKeys(extractTableDefinition(this.parent),  this.parent.getId()); // TODO add keys and possibly foreign keys, if no id is present.
+			child.buildForeignKeys(extractTableDefinition(this.parent), this.parent.getId()); // TODO add keys and possibly
+																																												// foreign keys, if no id is
+																																												// present.
 		}
 
 		@Override
 		List<ForeignKey> getForeignKey() {
 			return parent.getForeignKey();
+		}
+
+		@Override
+		void buildRowNumbers() {
+
+			parent.buildRowNumbers();
+			child.buildRowNumbers();
+
+			rowNumber = new Greatest(parent.getRowNumber(), child.getRowNumber());
+
 		}
 
 		@Override
@@ -507,6 +534,11 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 		}
 
 		@Override
+		void buildRowNumbers() {
+			rowNumber = new RowNumber(table.getForeignKey());
+		}
+
+		@Override
 		protected void setRowNumber(AnalyticColumn rowNumber) {
 			this.rowNumber = rowNumber;
 		}
@@ -599,6 +631,10 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 		}
 	}
 
+	/**
+	 * A Foreign Key referencing a differnet table. The referenced table is implicitly contained in the {@literal column}.
+	 * The {@literal owner} references the table this foreign key is contained in.
+	 */
 	class ForeignKey extends AnalyticColumn {
 
 		final AnalyticColumn column;
