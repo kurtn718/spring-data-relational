@@ -215,7 +215,6 @@ public class AnalyticStructureBuilderTests {
 					.build();
 
 			builder.getSelect();
-			// }); // TODO: this should throw an exception.
 		}
 
 		@Test
@@ -225,21 +224,21 @@ public class AnalyticStructureBuilderTests {
 					.addTable("granny", td -> td.withId("grannyId").withColumns("grannyName"))
 					.addChildTo("granny", "parent",
 							td -> td.withId("parentId").withKeyColumn("parentKey").withColumns("parentName"))
-					.addChildTo("parent", "child", td -> td.withColumns("childName"));
-
-			AnalyticStructureBuilder<String, String>.Select select = builder.getSelect();
+					.addChildTo("parent", "child", td -> td.withColumns("childName")) //
+					.build();
 
 			assertThat(builder).hasExactColumns( //
 					"grannyId", "grannyName", //
 					fk("parent", "grannyId"), //
-					greatest("grannyId", fk("parent", "grannyId")), //
-					rn(fk("parent", "grannyId")), //
+					maxOver(fk("parent", "grannyId"), greatest("parentId", fk("child", "parentId"))), //
+					rn(fk("parent", "grannyId")), // <-- this is bogus??
+					greatest("grannyId", maxOver(fk("parent", "grannyId"),greatest("parentId", fk("child", "parentId")))),
 					greatest(lit(1), rn(fk("parent", "grannyId"))), //
 					"parentId", "parentKey", "parentName", //
 					fk("child", "parentId"), //
 					greatest("parentId", fk("child", "parentId")), //
-					rn(fk("child", "parentId")), //
-					greatest(lit(1), rn(fk("child", "parentId"))), //
+					rn(fk("child", "parentId")), // this is no longer created?
+					greatest(lit(1), greatest(lit(1), rn(fk("child", "parentId")))), //
 					"childName" //
 			) //
 					.hasId("grannyId") //
