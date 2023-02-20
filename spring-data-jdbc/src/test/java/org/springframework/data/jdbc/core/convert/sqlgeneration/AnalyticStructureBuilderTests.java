@@ -195,9 +195,8 @@ public class AnalyticStructureBuilderTests {
 											eq("parentId", fk("child", "parentId")), //
 											eq(lit(1), rn(fk("child", "parentId"))) //
 									), //
-									eq("grannyId", fk("parent", "grannyId")), //
-									// eq(lit(1), rn(fk("parent", "grannyId"))) // old / wrong
-									eq(lit(1), maxOver(fk("parent", "grannyId"), greatest("parentId", fk("child", "parentId")))) // corrected
+									eq("grannyId", maxOver(fk("parent", "grannyId"), greatest("parentId", fk("child", "parentId")))), //
+									eq(lit(1), greatest(lit(1), rn(fk("child", "parentId")))) // corrected
 							) //
 					);
 		}
