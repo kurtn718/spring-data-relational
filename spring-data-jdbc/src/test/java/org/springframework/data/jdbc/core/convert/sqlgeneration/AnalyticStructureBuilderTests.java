@@ -317,10 +317,10 @@ public class AnalyticStructureBuilderTests {
 					rn(fk("parent", "grannyId")), //
 					greatest(lit(1), rn(fk("parent", "grannyId"))), //
 					"parentId", "parentName", //
-					fk("child", "parentId"), //
+					fk("child", "parentId"), // <--- not found
 					greatest("parentId", fk("child", "parentId")), //
 					rn(fk("child", "parentId")), //
-					greatest(lit(1), rn(fk("child", "parentId"))), //
+					greatest(lit(1), rn(fk("child", "parentId"))), // <--- not found
 					"childName" //
 			) //
 					.hasId("grannyId") //

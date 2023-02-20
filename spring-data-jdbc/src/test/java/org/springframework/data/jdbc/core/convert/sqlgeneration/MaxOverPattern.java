@@ -28,7 +28,8 @@ record MaxOverPattern<C> (Pattern expression, Pattern partitionBy) implements Pa
 			AnalyticStructureBuilder<?, ?>.AnalyticColumn actualColumn) {
 
 		AnalyticStructureBuilder<?, ?>.MaxOver maxOver = extractMaxOver(actualColumn);
-		return maxOver != null && expression.matches(select, maxOver.expression) && partitionBy.matches(select, maxOver.partitionBy);
+		// TODO: currently compares only first element of the partition by
+		return maxOver != null && expression.matches(select, maxOver.expression) && partitionBy.matches(select, maxOver.partitionBy.get(0));
 	}
 
 	@Override

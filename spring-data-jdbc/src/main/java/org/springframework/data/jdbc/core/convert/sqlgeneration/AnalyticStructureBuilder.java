@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -29,7 +30,6 @@ import java.util.stream.Collectors;
 
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
-import org.springframework.util.JdkIdGenerator;
 
 /**
  * Builds the structure of an analytic query. The structure contains arbitrary objects for tables and columns. There are
@@ -196,7 +196,7 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 
 		abstract void buildForeignKeys(TableDefinition parent, List<AnalyticColumn> keyColumns);
 
-		abstract List<ForeignKey> getForeignKey();
+		abstract List<AnalyticColumn> getForeignKey();
 
 		abstract void buildRowNumbers();
 	}
@@ -210,7 +210,7 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 		private final T table;
 		private AnalyticColumn id;
 		private List<AnalyticColumn> columns;
-		private List<ForeignKey> foreignKey = new ArrayList<>();
+		private List<AnalyticColumn> foreignKey = new ArrayList<>();
 		private BaseColumn keyColumn;
 
 		TableDefinition(T table, @Nullable AnalyticColumn id, List<? extends AnalyticColumn> columns, ForeignKey foreignKey,
@@ -257,7 +257,7 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 		}
 
 		@Override
-		List<ForeignKey> getForeignKey() {
+		List<AnalyticColumn> getForeignKey() {
 			return foreignKey;
 		}
 
@@ -337,6 +337,7 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 		private final Multiplicity multiplicity;
 
 		private final List<JoinCondition> conditions = new ArrayList<>();
+		private List<AnalyticColumn> foreignKey = new ArrayList<>();
 
 		AnalyticJoin(Select parent, Select child, Multiplicity multiplicity) {
 
@@ -390,6 +391,7 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 			parent.getColumns().forEach(c -> result.add(new DerivedColumn(c)));
 			child.getColumns().forEach(c -> result.add(new DerivedColumn(c)));
 			columnsFromJoin.forEach(c -> result.add(new DerivedColumn(c)));
+			foreignKey.forEach(c -> result.add(new DerivedColumn(c)));
 			result.add(rowNumber);
 			return result;
 		}
@@ -421,19 +423,39 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 		@Override
 		public void buildForeignKeys(TableDefinition parent, List<AnalyticColumn> keyColumns) {
 
+			// add fk columns as requested to the parent
 			this.parent.buildForeignKeys(parent, keyColumns);
+
+
+			// add id columns of the parent of this to the child of this join
+			// TODO add keys and possibly
 			// foreign keys, if no id is present ꜜ
-			child.buildForeignKeys(extractTableDefinition(this.parent), this.parent.getId()); // TODO add keys and possibly
+			List<AnalyticColumn> parentIds = this.parent.getId();
+			child.buildForeignKeys(extractTableDefinition(this.parent), parentIds);
+
+			// for each such generated fk column
+			Iterator<AnalyticColumn> parentIdsIterator = parentIds.iterator();
 			child.getForeignKey().forEach(fk -> {
-				AnalyticColumn parentId = fk.getForeignKeyColumn();
+
+				AnalyticColumn parentId = parentIdsIterator.next();
+				// add a greatest expression between the parent.id and the fk, to have a non-null id for this join
 				columnsFromJoin.add(new Greatest(parentId, fk));
+				// add the parent.id child.fk relation to the join condition
 				conditions.add(new JoinCondition(parentId, fk));
+			});
+
+
+			// create max expressions, so all rows relating to this.parent have populated fk columns
+			this.parent.getForeignKey().forEach(fk ->
+			{
+				MaxOver maxOver = new MaxOver(fk, columnsFromJoin);
+				this.foreignKey.add(maxOver);
 			});
 		}
 
 		@Override
-		List<ForeignKey> getForeignKey() {
-			return parent.getForeignKey();
+		List<AnalyticColumn> getForeignKey() {
+			return foreignKey;
 		}
 
 		@Override
@@ -537,7 +559,7 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 		}
 
 		@Override
-		List<ForeignKey> getForeignKey() {
+		List<AnalyticColumn> getForeignKey() {
 			return table.getForeignKey();
 		}
 
@@ -708,10 +730,14 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 	class MaxOver extends AnalyticColumn {
 
 		final AnalyticColumn expression;
-		final AnalyticColumn partitionBy;
+		final List<AnalyticColumn> partitionBy;
 
 		MaxOver(AnalyticColumn expression, AnalyticColumn partitionBy) {
+			this(expression, Collections.singletonList(partitionBy));
 
+		}
+
+		public MaxOver(AnalyticColumn expression, List<AnalyticColumn> partitionBy) {
 			this.expression = expression;
 			this.partitionBy = partitionBy;
 		}
@@ -725,7 +751,7 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 			return expression;
 		}
 
-		AnalyticColumn getPartitionBy() {
+		List<AnalyticColumn> getPartitionBy() {
 			return partitionBy;
 		}
 
