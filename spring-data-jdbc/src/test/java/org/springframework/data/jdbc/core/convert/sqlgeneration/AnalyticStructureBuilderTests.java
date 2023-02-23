@@ -257,7 +257,7 @@ public class AnalyticStructureBuilderTests {
 					// join of granny + (parent + child)
 					greatest("grannyId", fkJoinParentWithChildToGranny), // grannyId
 					// for every column
-							rnJoinParentWithChild, //
+					rnJoinParentWithChild, //
 					greatest(lit(1), greatest(lit(1), rn(fkChildToParent))) //
 			) //
 					.hasId("grannyId") //
@@ -288,12 +288,13 @@ public class AnalyticStructureBuilderTests {
 			assertThat(builder).hasExactColumns( //
 					"grannyId", "grannyName", //
 					fk("parent", "grannyId"), //
-//					greatest("grannyId", fk("parent", "grannyId")), //
-//					rn(fk("parent", "grannyId")), //
-//					greatest(lit(1), rn(fk("parent", "grannyId"))), //
-							greatest(lit(1), greatest(lit(1), rn(fk("child", fk("parent", "grannyId")), fk("child", "parentKey")))),
-					greatest("grannyId", maxOver(fk("parent", "grannyId"),greatest(fk("parent", "grannyId"), fk("child", fk("parent", "grannyId"))), greatest("parentKey", fk("child", "parentKey")))),
-					maxOver(fk("parent", "grannyId"), greatest(fk("parent", "grannyId"), fk("child", fk("parent", "grannyId"))), greatest("parentKey", fk("child", "parentKey"))),
+					greatest(lit(1), greatest(lit(1), rn(fk("child", fk("parent", "grannyId")), fk("child", "parentKey")))),
+					greatest("grannyId",
+							maxOver(fk("parent", "grannyId"),
+									greatest(fk("parent", "grannyId"), fk("child", fk("parent", "grannyId"))),
+									greatest("parentKey", fk("child", "parentKey")))),
+					maxOver(fk("parent", "grannyId"), greatest(fk("parent", "grannyId"), fk("child", fk("parent", "grannyId"))),
+							greatest("parentKey", fk("child", "parentKey"))),
 					"parentKey", "parentName", //
 
 					fk("child", fk("parent", "grannyId")), //
@@ -315,7 +316,10 @@ public class AnalyticStructureBuilderTests {
 											eq("parentKey", fk("child", "parentKey")), //
 											eq(lit(1), rn(fk("child", fk("parent", "grannyId")), fk("child", "parentKey"))) //
 									), //
-									eq("grannyId", maxOver(fk("parent", "grannyId"),greatest(fk("parent", "grannyId"), fk("child", fk("parent", "grannyId"))), greatest("parentKey", fk("child", "parentKey")))), //
+									eq("grannyId",
+											maxOver(fk("parent", "grannyId"),
+													greatest(fk("parent", "grannyId"), fk("child", fk("parent", "grannyId"))),
+													greatest("parentKey", fk("child", "parentKey")))), //
 									eq(lit(1), greatest(lit(1), rn(fk("child", fk("parent", "grannyId")), fk("child", "parentKey")))) //
 							) //
 					);
