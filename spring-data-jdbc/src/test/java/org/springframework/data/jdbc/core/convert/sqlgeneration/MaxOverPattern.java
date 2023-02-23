@@ -17,9 +17,9 @@ package org.springframework.data.jdbc.core.convert.sqlgeneration;
 
 import org.springframework.lang.Nullable;
 
-record MaxOverPattern<C> (Pattern expression, Pattern partitionBy) implements Pattern {
+record MaxOverPattern<C> (Pattern expression, Pattern ... partitionBy) implements Pattern {
 
-	public static <C> MaxOverPattern<C> maxOver(C expression, Pattern partitionBy) {
+	public static <C> MaxOverPattern<C> maxOver(C expression, Pattern ... partitionBy) {
 		return new MaxOverPattern(expression instanceof Pattern expressionPattern ? expressionPattern : new BasePattern(expression), partitionBy);
 	}
 
@@ -28,13 +28,22 @@ record MaxOverPattern<C> (Pattern expression, Pattern partitionBy) implements Pa
 			AnalyticStructureBuilder<?, ?>.AnalyticColumn actualColumn) {
 
 		AnalyticStructureBuilder<?, ?>.MaxOver maxOver = extractMaxOver(actualColumn);
-		// TODO: currently compares only first element of the partition by
-		return maxOver != null && expression.matches(select, maxOver.expression) && partitionBy.matches(select, maxOver.partitionBy.get(0));
+		if (maxOver == null)
+			return false;
+
+		if (!expression.matches(select, maxOver.expression)) return false;
+
+		for (int i = 0; i < partitionBy.length; i++) {
+			if (!partitionBy[i].matches(select, maxOver.partitionBy.get(i))) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	@Override
 	public String render() {
-		return "Max(%s) over (partition by %s)".formatted(expression.render(), partitionBy.render());
+		return "Max(%s) over (partition by %s)".formatted(expression.render(), partitionBy);
 	}
 
 	@Nullable
