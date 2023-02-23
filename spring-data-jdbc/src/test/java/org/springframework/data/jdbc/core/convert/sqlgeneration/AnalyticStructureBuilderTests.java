@@ -227,19 +227,38 @@ public class AnalyticStructureBuilderTests {
 					.addChildTo("parent", "child", td -> td.withColumns("childName")) //
 					.build();
 
+			ForeignKeyPattern<String, String> fkChildToParent = fk("child", "parentId");
+			GreatestPattern<String> idOfJoinParentWithChild = greatest("parentId", fkChildToParent);
+			ForeignKeyPattern<String, String> fkParentToGranny = fk("parent", "grannyId");
+			GreatestPattern<LiteralPattern> rnJoinParentWithChild = greatest(lit(1), rn(fkParentToGranny));
+			MaxOverPattern<ForeignKeyPattern<String, String>> fkJoinParentWithChildToGranny = maxOver(fkParentToGranny,
+					idOfJoinParentWithChild);
+
 			assertThat(builder).hasExactColumns( //
-					"grannyId", "grannyName", //
-					fk("parent", "grannyId"), //
-					maxOver(fk("parent", "grannyId"), greatest("parentId", fk("child", "parentId"))), //
-					rn(fk("parent", "grannyId")), // <-- this is bogus??
-					greatest("grannyId", maxOver(fk("parent", "grannyId"),greatest("parentId", fk("child", "parentId")))),
-					greatest(lit(1), rn(fk("parent", "grannyId"))), //
+
+					// child columns
+					"childName", //
+					fkChildToParent, //
+
+					// parent
 					"parentId", "parentKey", "parentName", //
-					fk("child", "parentId"), //
-					greatest("parentId", fk("child", "parentId")), //
-					rn(fk("child", "parentId")), // this is no longer created?
-					greatest(lit(1), greatest(lit(1), rn(fk("child", "parentId")))), //
-					"childName" //
+					fkParentToGranny, //
+
+					// join of parent + child
+					rn(fkChildToParent), // rownumber for the join itself. should be in the result because it is a single
+																// valued indicator if a child is present in this row. Relevant when there are
+																// siblings
+					idOfJoinParentWithChild, // guarantees a parent id in all rows and may serve as a join
+																		// column for siblings of child.
+					fkJoinParentWithChildToGranny, //
+
+					// granny
+					"grannyId", "grannyName", //
+					// join of granny + (parent + child)
+					greatest("grannyId", fkJoinParentWithChildToGranny), // grannyId
+					// for every column
+							rnJoinParentWithChild, //
+					greatest(lit(1), greatest(lit(1), rn(fkChildToParent))) //
 			) //
 					.hasId("grannyId") //
 					.hasStructure( //
@@ -248,11 +267,11 @@ public class AnalyticStructureBuilderTests {
 									aj( //
 											td("parent"), //
 											av(td("child")), //
-											eq("parentId", fk("child", "parentId")), //
-											eq(lit(1), rn(fk("child", "parentId"))) //
+											eq("parentId", fkChildToParent), //
+											eq(lit(1), rn(fkChildToParent)) //
 									), //
-									eq("grannyId", fk("parent", "grannyId")), //
-									eq(lit(1), rn(fk("parent", "grannyId"))) //
+									eq("grannyId", fkJoinParentWithChildToGranny), //
+									eq(lit(1), rnJoinParentWithChild) //
 							) //
 					);
 		}
