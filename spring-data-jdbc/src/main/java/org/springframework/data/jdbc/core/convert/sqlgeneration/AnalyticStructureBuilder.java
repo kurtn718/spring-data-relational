@@ -160,7 +160,6 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 
 	public AnalyticStructure<T, C> build() {
 
-		System.out.println("--------------    build --------------------");
 		buildForeignKeys();
 		buildRowNumbers();
 
