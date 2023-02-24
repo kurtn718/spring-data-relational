@@ -517,9 +517,10 @@ public class AnalyticStructureBuilderTests {
 		ForeignKeyPattern<String, String> fkKeyAccountToCustomerId = fk("keyAccount", "customerId");
 		GreatestPattern<String> idJoinAssistantAndKeyAccount = greatest("keyAccountId", fkAssistantToKeyAccount);
 		GreatestPattern<String> idJoinOfficeAndKeyAccount = greatest("keyAccountId", fkOfficeToKeyAccount);
-		MaxOverPattern<ForeignKeyPattern<String, String>> fkJoinAssistantAndKeyAccountToCustomer = maxOver(fkKeyAccountToCustomerId, idJoinAssistantAndKeyAccount);
-		MaxOverPattern<MaxOverPattern<ForeignKeyPattern<String, String>>> fkJoinOfficeAndAssistantAndKeyAccountToCustomer = maxOver(fkJoinAssistantAndKeyAccountToCustomer,
-				idJoinOfficeAndKeyAccount);
+		MaxOverPattern<ForeignKeyPattern<String, String>> fkJoinAssistantAndKeyAccountToCustomer = maxOver(
+				fkKeyAccountToCustomerId, idJoinAssistantAndKeyAccount);
+		MaxOverPattern<MaxOverPattern<ForeignKeyPattern<String, String>>> fkJoinOfficeAndAssistantAndKeyAccountToCustomer = maxOver(
+				fkJoinAssistantAndKeyAccountToCustomer, idJoinOfficeAndKeyAccount);
 		assertThat(builder).hasStructure( //
 				aj( //
 						aj( //
@@ -535,8 +536,7 @@ public class AnalyticStructureBuilderTests {
 										eq("keyAccountId", fkOfficeToKeyAccount), //
 										eq(greatest(lit(1), rnAssistant), rnOffice) //
 								), //
-								eq("customerId",
-										fkJoinOfficeAndAssistantAndKeyAccountToCustomer), //
+								eq("customerId", fkJoinOfficeAndAssistantAndKeyAccountToCustomer), //
 								eq(lit(1), greatest(greatest(lit(1), rnAssistant), rnOffice)) //
 						), //
 						aj( //
@@ -568,52 +568,70 @@ public class AnalyticStructureBuilderTests {
 				.build();
 
 		GreatestPattern<LiteralPattern> rnKeyAccount = greatest(lit(1), rn(fk("keyAccount", "customerId")));
-		GreatestPattern<LiteralPattern> rnAssistant = greatest(lit(1), rn(fk("assistant", "keyAccountId")));
+		ForeignKeyPattern<String, String> fkAssistantToKeyAccount = fk("assistant", "keyAccountId");
+		GreatestPattern<LiteralPattern> rnAssistant = greatest(lit(1), rn(fkAssistantToKeyAccount));
+		ForeignKeyPattern<String, String> fkItemToOrder = fk("item", "orderId");
+		GreatestPattern<LiteralPattern> rnItem = greatest(lit(1), rn(fkItemToOrder));
 
-		GreatestPattern<LiteralPattern> rnItem = greatest(lit(1), rn(fk("item", "orderId")));
+		ForeignKeyPattern<String, String> fkRoomToOffice = fk("room", "officeId");
+		GreatestPattern<String> idJoinRoomAndOffice = greatest("officeId", fkRoomToOffice);
+		MaxOverPattern<ForeignKeyPattern<String, String>> fkJoinRommAndOfficeToKeyAccount = maxOver(
+				fk("office", "keyAccountId"), idJoinRoomAndOffice);
+		RowNumberPattern rnRoom = rn(fkRoomToOffice);
 		assertThat(builder).hasExactColumns( //
 				"customerId", "customerName", //
 				fk("keyAccount", "customerId"), //
-				greatest("customerId", fk("keyAccount", "customerId")), //
 				rn(fk("keyAccount", "customerId")), //
 				rnKeyAccount, //
 				"keyAccountId", "keyAccountName", //
 
-				fk("assistant", "keyAccountId"), //
-				greatest("keyAccountId", fk("assistant", "keyAccountId")), //
-				rn(fk("assistant", "keyAccountId")), //
+				fkAssistantToKeyAccount, //
+				rn(fkAssistantToKeyAccount), //
 				rnAssistant, //
 				"assistantName", //
 
 				fk("office", "keyAccountId"), //
-				greatest("keyAccountId", fk("office", "keyAccountId")), //
 				rn(fk("office", "keyAccountId")), //
 				greatest(rnAssistant, rn(fk("office", "keyAccountId"))), //
 				"officeName", //
 
 				fk("order", "customerId"), //
-				greatest("customerId", fk("order", "customerId")), //
 				rn(fk("order", "customerId")), //
-				greatest(rnKeyAccount, rn(fk("order", "customerId"))), //
 				"orderId", "orderName", //
 
-				fk("item", "orderId"), //
-				greatest("orderId", fk("item", "orderId")), //
-				rn(fk("item", "orderId")), //
+				fkItemToOrder, //
+				greatest("orderId", fkItemToOrder), //
 				rnItem, //
 				"itemName", //
 
 				fk("shipment", "orderId"), //
 				greatest("orderId", fk("shipment", "orderId")), //
-				rn(fk("shipment", "orderId")), //
-				greatest(rnItem, rn(fk("shipment", "orderId"))), //
 				"shipmentName", "officeId", //
 
-				fk("room", "officeId"), //
-				greatest("officeId", fk("room", "officeId")), //
-				rn(fk("room", "officeId")), //
-				greatest(lit(1), rn(fk("room", "officeId"))), //
-				"roomNumber" //
+				fkRoomToOffice, //
+				idJoinRoomAndOffice, //
+				"roomNumber", //
+
+				greatest("keyAccountId", fkAssistantToKeyAccount), //
+				maxOver(fk("keyAccount", "customerId"), greatest("keyAccountId", fkAssistantToKeyAccount)), //
+				fkJoinRommAndOfficeToKeyAccount, //
+				greatest("keyAccountId", fkJoinRommAndOfficeToKeyAccount), //
+				maxOver(maxOver(fk("keyAccount", "customerId"), greatest("keyAccountId", fkAssistantToKeyAccount)),
+						greatest("keyAccountId", fkJoinRommAndOfficeToKeyAccount)), //
+				greatest(greatest(lit(1), rn(fkAssistantToKeyAccount)), greatest(lit(1), rnRoom)), //
+				greatest("customerId",
+						maxOver(maxOver(fk("keyAccount", "customerId"), greatest("keyAccountId", fkAssistantToKeyAccount)),
+								greatest("keyAccountId", fkJoinRommAndOfficeToKeyAccount))), //
+				greatest(lit(1), greatest(greatest(lit(1), rn(fkAssistantToKeyAccount)), greatest(lit(1), rnRoom))), //
+				maxOver(fk("order", "customerId"), greatest("orderId", fkItemToOrder)), //
+				maxOver(maxOver(fk("order", "customerId"), greatest("orderId", fkItemToOrder)),
+						greatest("orderId", fk("shipment", "orderId"))), //
+				greatest("customerId",
+						maxOver(maxOver(fk("order", "customerId"), greatest("orderId", fkItemToOrder)),
+								greatest("orderId", fk("shipment", "orderId")))), //
+				greatest(greatest(lit(1), greatest(greatest(lit(1), rn(fkAssistantToKeyAccount)), greatest(lit(1), rnRoom))),
+						greatest(greatest(lit(1), rn(fkItemToOrder)), rn(fk("shipment", "orderId")))) //
+
 		).hasId("customerId") //
 				.hasStructure( //
 						aj( //
@@ -623,34 +641,40 @@ public class AnalyticStructureBuilderTests {
 												aj( //
 														td("keyAccount"), //
 														av(td("assistant")), //
-														eq("keyAccountId", fk("assistant", "keyAccountId")), //
-														eq(lit(1), rn(fk("assistant", "keyAccountId"))) //
+														eq("keyAccountId", fkAssistantToKeyAccount), //
+														eq(lit(1), rn(fkAssistantToKeyAccount)) //
 												), //
 												aj( //
 														td("office"), //
 														av(td("room")), //
-														eq("officeId", fk("room", "officeId")), //
-														eq(lit(1), rn(fk("room", "officeId"))) //
+														eq("officeId", fkRoomToOffice), //
+														eq(lit(1), rnRoom) //
 												), //
-												eq("keyAccountId", fk("office", "keyAccountId")), //
-												eq(rnAssistant, rn(fk("office", "keyAccountId"))) //
+												eq("keyAccountId", fkJoinRommAndOfficeToKeyAccount), //
+												eq(greatest(lit(1), rn(fkAssistantToKeyAccount)), greatest(lit(1), rnRoom)) //
 										), //
-										eq("customerId", fk("keyAccount", "customerId")), //
-										eq(lit(1), rn(fk("keyAccount", "customerId"))) //
+										eq("customerId",
+												maxOver(
+														maxOver(fk("keyAccount", "customerId"), greatest("keyAccountId", fkAssistantToKeyAccount)),
+														greatest("keyAccountId", fkJoinRommAndOfficeToKeyAccount))), //
+										eq(lit(1), greatest(greatest(lit(1), rn(fkAssistantToKeyAccount)), greatest(lit(1), rnRoom))) //
 								), //
 								aj( //
 										aj( //
 												td("order"), //
 												av(td("item")), //
-												eq("orderId", fk("item", "orderId")), //
-												eq(lit(1), rn(fk("item", "orderId"))) //
+												eq("orderId", fkItemToOrder), //
+												eq(lit(1), rn(fkItemToOrder)) //
 										), //
 										av(td("shipment")), //
 										eq("orderId", fk("shipment", "orderId")), //
-										eq(rnItem, rn(fk("shipment", "orderId"))) //
+										eq(greatest(lit(1), rn(fkItemToOrder)), rn(fk("shipment", "orderId"))) //
 								), //
-								eq("customerId", fk("order", "customerId")), //
-								eq(rnKeyAccount, rn(fk("order", "customerId"))) //
+								eq("customerId",
+										maxOver(maxOver(fk("order", "customerId"), greatest("orderId", fkItemToOrder)),
+												greatest("orderId", fk("shipment", "orderId")))), //
+								eq(greatest(lit(1), greatest(greatest(lit(1), rn(fkAssistantToKeyAccount)), greatest(lit(1), rnRoom))),
+										greatest(greatest(lit(1), rn(fkItemToOrder)), rn(fk("shipment", "orderId")))) //
 						) //
 				);
 
