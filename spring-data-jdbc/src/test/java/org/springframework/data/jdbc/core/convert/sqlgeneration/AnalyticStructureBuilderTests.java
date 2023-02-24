@@ -427,34 +427,51 @@ public class AnalyticStructureBuilderTests {
 				.addChildTo("address", "type", td -> td.withColumns("typeName")) //
 				.build();
 
-		GreatestPattern<LiteralPattern> rnOrder = greatest(lit(1), rn(fk("address", "customerId")));
-		GreatestPattern<LiteralPattern> rnCity = greatest(lit(1), rn(fk("city", "addressId")));
+		ForeignKeyPattern<String, String> fkCityToAddress = fk("city", "addressId");
+		GreatestPattern<String> idJoinCityAndAddress = greatest("addressId", fkCityToAddress);
+		ForeignKeyPattern<String, String> fkAddressToCustomer = fk("address", "customerId");
+		MaxOverPattern<ForeignKeyPattern<String, String>> fkJoinCityAndAddressToCustomer = maxOver(fkAddressToCustomer,
+				idJoinCityAndAddress);
+		ForeignKeyPattern<String, String> fkTypeToAddress = fk("type", "addressId");
+		GreatestPattern<String> idJoinTypeAndAddress = greatest("addressId", fkTypeToAddress);
+		MaxOverPattern<MaxOverPattern<ForeignKeyPattern<String, String>>> fkJoinCityAndAddressAndTypeToCustomer = maxOver(
+				fkJoinCityAndAddressToCustomer, idJoinTypeAndAddress);
+		GreatestPattern<LiteralPattern> rnJoinAddressToCustomerr = greatest(lit(1), rn(fkAddressToCustomer));
+		ForeignKeyPattern<String, String> fkOrderToCustomer = fk("order", "customerId");
+		GreatestPattern<String> idJoinOrderAndCustomer = greatest("customerId", fkOrderToCustomer);
+		GreatestPattern<GreatestPattern<LiteralPattern>> rnJoinAddressAndCustomerAndOrder = greatest(
+				rnJoinAddressToCustomerr, rn(fkOrderToCustomer));
+		GreatestPattern<String> idJoinCustomerAndCityAndAddressAndType = greatest("customerId",
+				fkJoinCityAndAddressAndTypeToCustomer);
+		RowNumberPattern rnCity = rn(fkCityToAddress);
+		RowNumberPattern rnType = rn(fkTypeToAddress);
+
 		assertThat(builder).hasExactColumns( //
 				"customerId", "customerName", //
-				fk("address", "customerId"), //
-				greatest("customerId", fk("address", "customerId")), //
-				rn(fk("address", "customerId")), //
-				rnOrder, //
-				"addressId", "addressName", // <--
+				fkAddressToCustomer, //
+				rn(fkAddressToCustomer), //
+				fkJoinCityAndAddressToCustomer, //
+				fkJoinCityAndAddressAndTypeToCustomer, //
+				rnJoinAddressToCustomerr, //
+				"addressId", "addressName", //
 
-				fk("city", "addressId"), //
-				greatest("addressId", fk("city", "addressId")), //
-				rn(fk("city", "addressId")), //
+				fkCityToAddress, //
+				idJoinCityAndAddress, //
 				rnCity, //
 				"cityName", //
 
-				fk("order", "customerId"), //
-				greatest("customerId", fk("order", "customerId")), //
-				rn(fk("order", "customerId")), //
-				greatest(rnOrder, rn(fk("order", "customerId"))), //
+				fkOrderToCustomer, //
+				idJoinOrderAndCustomer, //
+				rn(fkOrderToCustomer), //
+				rnJoinAddressAndCustomerAndOrder, //
 				"orderId", "orderName", //
 
-				fk("type", "addressId"), //
-				greatest("addressId", fk("type", "addressId")), //
-				rn(fk("type", "addressId")), //
-				greatest(rnCity, rn(fk("type", "addressId"))), //
-				"typeName"//
-		).hasId("customerId") //
+				fkTypeToAddress, //
+				idJoinTypeAndAddress, //
+				"typeName", //
+				idJoinCustomerAndCityAndAddressAndType, greatest(lit(1), greatest(greatest(lit(1), rnCity), rnType)),
+				greatest(greatest(lit(1), greatest(greatest(lit(1), rnCity), rnType)), rn(fkOrderToCustomer)))
+				.hasId("customerId") //
 				.hasStructure( //
 						aj( //
 								aj( //
@@ -463,19 +480,19 @@ public class AnalyticStructureBuilderTests {
 												aj( //
 														td("address"), //
 														av(td("city")), //
-														eq("addressId", fk("city", "addressId")), //
-														eq(lit(1), rn(fk("city", "addressId"))) //
+														eq("addressId", fkCityToAddress), //
+														eq(lit(1), rnCity) //
 												), //
 												av(td("type")), //
-												eq("addressId", fk("type", "addressId")), //
-												eq(rnCity, rn(fk("type", "addressId"))) //
+												eq("addressId", fkTypeToAddress), //
+												eq(greatest(lit(1), rnCity), rnType) //
 										), //
-										eq("customerId", fk("address", "customerId")), //
-										eq(lit(1), rn(fk("address", "customerId"))) //
+										eq("customerId", fkJoinCityAndAddressAndTypeToCustomer), //
+										eq(lit(1), greatest(greatest(lit(1), rnCity), rnType)) //
 								), //
 								av(td("order")), //
-								eq("customerId", fk("order", "customerId")), //
-								eq(rnOrder, rn(fk("order", "customerId"))) //
+								eq("customerId", fkOrderToCustomer), //
+								eq(greatest(lit(1), greatest(greatest(lit(1), rnCity), rnType)), rn(fkOrderToCustomer)) //
 						) //
 				);
 
