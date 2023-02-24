@@ -510,6 +510,16 @@ public class AnalyticStructureBuilderTests {
 				.addChildTo("order", "item", td -> td.withId("itemId").withColumns("itemName")) //
 				.build();
 
+		ForeignKeyPattern<String, String> fkOfficeToKeyAccount = fk("office", "keyAccountId");
+		ForeignKeyPattern<String, String> fkAssistantToKeyAccount = fk("assistant", "keyAccountId");
+		RowNumberPattern rnOffice = rn(fkOfficeToKeyAccount);
+		RowNumberPattern rnAssistant = rn(fkAssistantToKeyAccount);
+		ForeignKeyPattern<String, String> fkKeyAccountToCustomerId = fk("keyAccount", "customerId");
+		GreatestPattern<String> idJoinAssistantAndKeyAccount = greatest("keyAccountId", fkAssistantToKeyAccount);
+		GreatestPattern<String> idJoinOfficeAndKeyAccount = greatest("keyAccountId", fkOfficeToKeyAccount);
+		MaxOverPattern<ForeignKeyPattern<String, String>> fkJoinAssistantAndKeyAccountToCustomer = maxOver(fkKeyAccountToCustomerId, idJoinAssistantAndKeyAccount);
+		MaxOverPattern<MaxOverPattern<ForeignKeyPattern<String, String>>> fkJoinOfficeAndAssistantAndKeyAccountToCustomer = maxOver(fkJoinAssistantAndKeyAccountToCustomer,
+				idJoinOfficeAndKeyAccount);
 		assertThat(builder).hasStructure( //
 				aj( //
 						aj( //
@@ -518,15 +528,16 @@ public class AnalyticStructureBuilderTests {
 										aj( //
 												td("keyAccount"), //
 												av(td("assistant")), //
-												eq("keyAccountId", fk("assistant", "keyAccountId")), //
-												eq(lit(1), rn(fk("assistant", "keyAccountId"))) //
+												eq("keyAccountId", fkAssistantToKeyAccount), //
+												eq(lit(1), rnAssistant) //
 										), //
 										av(td("office")), //
-										eq("keyAccountId", fk("office", "keyAccountId")), //
-										eq(greatest(lit(1), rn(fk("assistant", "keyAccountId"))), rn(fk("office", "keyAccountId"))) //
+										eq("keyAccountId", fkOfficeToKeyAccount), //
+										eq(greatest(lit(1), rnAssistant), rnOffice) //
 								), //
-								eq("customerId", fk("keyAccount", "customerId")), //
-								eq(lit(1), rn(fk("keyAccount", "customerId"))) //
+								eq("customerId",
+										fkJoinOfficeAndAssistantAndKeyAccountToCustomer), //
+								eq(lit(1), greatest(greatest(lit(1), rnAssistant), rnOffice)) //
 						), //
 						aj( //
 								td("order"), //
@@ -534,8 +545,9 @@ public class AnalyticStructureBuilderTests {
 								eq("orderId", fk("item", "orderId")), //
 								eq(lit(1), rn(fk("item", "orderId"))) //
 						), //
-						eq("customerId", fk("order", "customerId")), //
-						eq(greatest(lit(1), rn(fk("keyAccount", "customerId"))), rn(fk("order", "customerId"))) //
+						eq("customerId", maxOver(fk("order", "customerId"), greatest("orderId", fk("item", "orderId")))), //
+						eq(greatest(lit(1), greatest(greatest(lit(1), rnAssistant), rnOffice)),
+								greatest(lit(1), rn(fk("item", "orderId")))) //
 				) //
 		);
 
