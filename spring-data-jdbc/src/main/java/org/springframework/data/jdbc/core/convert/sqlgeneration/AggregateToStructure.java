@@ -41,7 +41,7 @@ class AggregateToStructure {
 		builder.addTable(aggregateRoot, td -> configureTableDefinition(aggregateRoot, td));
 		addReferencedEntities(builder, aggregateRoot);
 
-		return builder.getSelect();
+		return builder.build().getSelect();
 	}
 
 	private void addReferencedEntities(
