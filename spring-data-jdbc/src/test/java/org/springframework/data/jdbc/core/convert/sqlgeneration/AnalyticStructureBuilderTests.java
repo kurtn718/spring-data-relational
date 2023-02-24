@@ -384,30 +384,32 @@ public class AnalyticStructureBuilderTests {
 					.addChildTo("parent", "child", td -> td.withColumns("childName")) //
 					.build();
 
+			ForeignKeyPattern<String, String> fkParentToGranny = fk("parent", "grannyId");
+			ForeignKeyPattern<String, ForeignKeyPattern<String, String>> fkChildToGranny = fk("child", fkParentToGranny);
 			assertThat(builder).hasExactColumns( //
 					"grannyId", "grannyName", //
-					fk("parent", "grannyId"), //
-					greatest("grannyId", fk("parent", "grannyId")), // TODO: max is superfluous for single
-					rn(fk("parent", "grannyId")), //
-					greatest(lit(1), rn(fk("parent", "grannyId"))), //
+					fkParentToGranny, //
+					rn(fkParentToGranny), //
+					greatest(lit(1), rn(fkParentToGranny)), //
 					"parentName", //
-					fk("child", fk("parent", "grannyId")), //
-					greatest(fk("parent", "grannyId"), fk("child", fk("parent", "grannyId"))), //
-					rn(fk("child", fk("parent", "grannyId"))), //
-					greatest(lit(1), rn(fk("child", fk("parent", "grannyId")))), //
-					"childName") //
-					.hasId("grannyId") //
+					fkChildToGranny, //
+					greatest(fkParentToGranny, fkChildToGranny), //
+					"childName", //
+					maxOver(fkParentToGranny, greatest(fkParentToGranny, fkChildToGranny)), //
+					greatest("grannyId", maxOver(fkParentToGranny, greatest(fkParentToGranny, fkChildToGranny))), //
+					greatest(lit(1), greatest(lit(1), rn(fkChildToGranny))) //
+			).hasId("grannyId") //
 					.hasStructure( //
 							aj( //
 									td("granny"), //
 									aj( //
 											td("parent"), //
 											av(td("child")), //
-											eq(fk("parent", "grannyId"), fk("child", fk("parent", "grannyId"))), //
-											eq(lit(1), rn(fk("child", fk("parent", "grannyId")))) //
+											eq(fkParentToGranny, fkChildToGranny), //
+											eq(lit(1), rn(fkChildToGranny)) //
 									), //
-									eq("grannyId", fk("parent", "grannyId")), //
-									eq(lit(1), rn(fk("parent", "grannyId"))) //
+									eq("grannyId", maxOver(fkParentToGranny, greatest(fkParentToGranny, fkChildToGranny))), //
+									eq(lit(1), greatest(lit(1), rn(fkChildToGranny))) //
 							) //
 					);
 		}
