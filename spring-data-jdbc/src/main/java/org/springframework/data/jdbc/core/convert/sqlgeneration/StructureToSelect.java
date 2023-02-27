@@ -19,6 +19,8 @@ package org.springframework.data.jdbc.core.convert.sqlgeneration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.springframework.data.relational.core.mapping.RelationalPersistentEntity;
 import org.springframework.data.relational.core.mapping.RelationalPersistentProperty;
@@ -101,21 +103,22 @@ class StructureToSelect {
 				System.out.println("for now skipping foreign key" + fk);
 				continue;
 			}
+			Expression column;
+
 			RelationalPersistentProperty property = analyticColumn.getColumn();
 			if (property == null) {
 				// TODO: handle all the special join management columns.
-				System.out.println("for now skipping analytic column" + analyticColumn);
-				continue;
-			}
+				System.out.println("wip: " + analyticColumn);
+				if (analyticColumn instanceof AnalyticStructureBuilder.RowNumber rn) {
 
-			SqlIdentifier columnName = property.getColumnName();
+					Column[] partitionBys = ((Stream<Column>) rn.getPartitionBy().stream().map(ac -> parentTable.column(aliasFactory.getAliasFor(ac)))).toArray(Column[]::new);
 
-
-				Column column;
-			if (declareAlias) {
-				column = parentTable.column(columnName).as(getAliasFor(property));
+					column = AnalyticFunction.create("ROW_NUMBER").partitionBy(partitionBys).as(aliasFactory.getAliasFor(rn));
+				} else {
+					throw new UnsupportedOperationException("Can't handle " + analyticColumn);
+				}
 			} else {
-				column = parentTable.column(getAliasFor(property));
+				column = createColumn(parentTable, property, declareAlias);
 			}
 
 			tableColumns.add(column);
@@ -123,6 +126,20 @@ class StructureToSelect {
 
 		}
 		return tableColumns;
+	}
+
+	private Column createColumn(TableLike parentTable, RelationalPersistentProperty property, boolean declareAlias) {
+
+		String alias = getAliasFor(property);
+
+		if (declareAlias) {
+
+			return parentTable //
+					.column(property.getColumnName()) //
+					.as(alias);
+		} else {
+			return parentTable.column(alias);
+		}
 	}
 
 	private TableLike tableFor(
@@ -159,7 +176,11 @@ class StructureToSelect {
 		TableLike table = tableFor(tableDefinition);
 		for (AnalyticStructureBuilder<RelationalPersistentEntity, RelationalPersistentProperty>.AnalyticColumn analyticColumn : analyticColumns) {
 
-			if (analyticColumn instanceof AnalyticStructureBuilder.ForeignKey) {
+			if (analyticColumn instanceof AnalyticStructureBuilder<RelationalPersistentEntity, RelationalPersistentProperty>.ForeignKey foreignKey) {
+
+				SqlIdentifier columnName = createFkColumnName(foreignKey);
+				String alias = aliasFactory.getAliasFor(foreignKey);
+				tableColumns.add(table.column(columnName).as(alias));
 				continue;
 			}
 			RelationalPersistentProperty property = analyticColumn.getColumn();
@@ -176,5 +197,10 @@ class StructureToSelect {
 
 		SelectBuilder.SelectFromAndJoin from = StatementBuilder.select(tableColumns).from(table);
 		return from;
+	}
+
+	private static SqlIdentifier createFkColumnName(AnalyticStructureBuilder<RelationalPersistentEntity, RelationalPersistentProperty>.ForeignKey foreignKey) {
+		// TODO: this is currently quite wrong
+		return foreignKey.getForeignKeyColumn().getColumn().getColumnName();
 	}
 }

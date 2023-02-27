@@ -28,6 +28,8 @@ public class AliasFactory {
 	private int tableIndex = 0;
 	private int viewIndex = 0;
 	private int columnIndex = 0;
+	private int rnIndex = 0;
+	private int fkIndex = 0;
 
 	String getAliasFor(Object key) {
 
@@ -58,6 +60,13 @@ public class AliasFactory {
 			return "V%04d".formatted(++viewIndex);
 		}
 
+		if (key instanceof AnalyticStructureBuilder.RowNumber) {
+			return "RN%04d".formatted(++rnIndex);
+		}
+
+		if (key instanceof AnalyticStructureBuilder.ForeignKey) {
+			return "FK%04d".formatted(++fkIndex);
+		}
 		throw new UnsupportedOperationException("can't generate alias for " + key);
 	}
 

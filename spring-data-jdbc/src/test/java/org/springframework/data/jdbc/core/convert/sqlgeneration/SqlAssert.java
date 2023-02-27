@@ -67,6 +67,7 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 
 		List<RelationalPersistentProperty> notFound = new ArrayList<>();
 
+		// check normal property based columns
 		columnsSpec.foreach((RelationalPersistentProperty property) -> {
 			for (ActualColumn currentColumn : actualColumns) {
 				String alias = aliasFactory.getAliasFor(property);
@@ -77,6 +78,13 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 			}
 			notFound.add(property);
 		});
+
+		// check special properties
+		for (Object specialColumn : columnsSpec.specialColumns) {
+			for (ActualColumn actualColumn : actualColumns) {
+			}
+		}
+
 
 		if (actualColumns.isEmpty() && notFound.isEmpty()) {
 			return this;
@@ -162,6 +170,8 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 		private final RelationalPersistentEntity<?> currentEntity;
 		final Map<RelationalPersistentProperty, String> paths = new HashMap<>();
 
+		final List<Object> specialColumns = new ArrayList<>();
+
 		public ColumnsSpec(RelationalMappingContext context, RelationalPersistentEntity<?> entity) {
 
 			this.context = context;
@@ -175,6 +185,13 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 
 			RelationalPersistentProperty leafProperty = path.getLeafProperty();
 			paths.put(leafProperty, pathString);
+
+			return this;
+		}
+
+		public ColumnsSpec rowNumber(String dummy) {
+
+			specialColumns.add("row number");
 			return this;
 		}
 

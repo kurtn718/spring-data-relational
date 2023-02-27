@@ -72,7 +72,8 @@ class AnalyticSqlGeneratorTests {
 		todos:
 
 		- join conditions
-				- rownumber in view
+		- rownumber in view
+		- foreign keys
 */
 
 
@@ -83,6 +84,7 @@ class AnalyticSqlGeneratorTests {
 								.property("id") //
 								.property( "dummy.id") //
 								.property( "dummy.aColumn") //
+								.rowNumber("dummy") //
 				).assignsAliasesExactlyOnce();
 	}
 
