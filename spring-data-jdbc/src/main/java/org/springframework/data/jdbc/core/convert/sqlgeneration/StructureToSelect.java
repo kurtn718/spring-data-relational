@@ -71,12 +71,12 @@ class StructureToSelect {
 		SelectBuilder.BuildSelect childSelect = createSelect(child);
 		InlineQuery childQuery = InlineQuery.create(childSelect.build(), getAliasFor(child));
 
-		Collection columns = getSelectList(child, childQuery);
+		Collection<Expression> columns = getSelectList(child, childQuery, false);
 
 		AnalyticStructureBuilder<RelationalPersistentEntity, RelationalPersistentProperty>.Select parent = analyticJoin
 				.getParent();
 		TableLike parentTable = tableFor(parent);
-		columns.addAll(getSelectList(parent, parentTable));
+		columns.addAll(getSelectList(parent, parentTable, false));
 
 		SelectBuilder.SelectFromAndJoin selectAndParent = StatementBuilder.select(columns).from(parentTable);
 
@@ -90,7 +90,7 @@ class StructureToSelect {
 
 	private Collection<Expression> getSelectList(
 			AnalyticStructureBuilder<RelationalPersistentEntity, RelationalPersistentProperty>.Select parent,
-			TableLike parentTable) {
+			TableLike parentTable, boolean declareAlias) {
 
 		Collection<Expression> tableColumns = new ArrayList<>();
 
@@ -110,7 +110,14 @@ class StructureToSelect {
 
 			SqlIdentifier columnName = property.getColumnName();
 
-			Column column = parentTable.column(columnName).as(getAliasFor(property));
+
+				Column column;
+			if (declareAlias) {
+				column = parentTable.column(columnName).as(getAliasFor(property));
+			} else {
+				column = parentTable.column(getAliasFor(property));
+			}
+
 			tableColumns.add(column);
 			System.out.println("column " + column);
 

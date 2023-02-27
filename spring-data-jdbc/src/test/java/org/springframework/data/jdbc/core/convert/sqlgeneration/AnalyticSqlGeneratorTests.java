@@ -73,7 +73,6 @@ class AnalyticSqlGeneratorTests {
 
 		- join conditions
 				- rownumber in view
-		- derived columns should only be referenced by alias
 */
 
 

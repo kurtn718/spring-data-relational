@@ -85,6 +85,24 @@ public class AnalyticStructureBuilderTests {
 	}
 
 	@Test
+	void columnsPassedThroughAreRepresentedAsDerivedColumn() {
+
+		AnalyticStructure<String, String> builder = new AnalyticStructureBuilder<String, String>()
+				.addTable("parent", td -> td.withId("parentId").withColumns("parent-value", "parent-lastname"))
+				.addChildTo("parent", "child", td -> td.withColumns("child-value", "child-lastname")) //
+				.build();
+
+		assertThat(builder.getSelect().getColumns()) //
+				.allMatch(c -> //
+						c instanceof AnalyticStructureBuilder.DerivedColumn //
+								|| c instanceof AnalyticStructureBuilder.Greatest //
+				);
+
+	}
+
+
+
+	@Test
 	void tableWithSingleChildWithKey() {
 
 		AnalyticStructure<String, String> builder = new AnalyticStructureBuilder<String, String>()
