@@ -55,6 +55,28 @@ class AnalyticSqlGeneratorTests {
 
 		System.out.println(sql);
 
+		/*
+		SELECT
+		V0001.a_column AS C0001_ACOLUMN,
+				V0001.id AS C0002_ID,
+		T0002_SINGLEREFERENCE.id AS C0003_ID
+		FROM single_reference T0002_SINGLEREFERENCE
+		FULL OUTER JOIN (
+				SELECT
+				T0001_DUMMYENTITY.a_column AS C0001_ACOLUMN,
+				T0001_DUMMYENTITY.id AS C0002_ID
+				FROM dummy_entity T0001_DUMMYENTITY
+		) V0001 ON 1 = 2
+
+
+		todos:
+
+		- join conditions
+				- rownumber in view
+		- derived columns should only be referenced by alias
+*/
+
+
 		assertThatParsed(sql) //
 				.withAliases(aliasFactory) //
 				.hasColumns( //
@@ -62,7 +84,7 @@ class AnalyticSqlGeneratorTests {
 								.property("id") //
 								.property( "dummy.id") //
 								.property( "dummy.aColumn") //
-				);
+				).assignsAliasesExactlyOnce();
 	}
 
 	private ColumnsSpec from(RelationalPersistentEntity<?> entity) {

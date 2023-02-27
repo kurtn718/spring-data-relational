@@ -26,7 +26,6 @@ import net.sf.jsqlparser.statement.select.SelectItem;
 import net.sf.jsqlparser.statement.select.SelectItemVisitorAdapter;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +38,8 @@ import org.springframework.data.mapping.PersistentPropertyPath;
 import org.springframework.data.relational.core.mapping.RelationalMappingContext;
 import org.springframework.data.relational.core.mapping.RelationalPersistentEntity;
 import org.springframework.data.relational.core.mapping.RelationalPersistentProperty;
+
+import static org.assertj.core.api.Assertions.*;
 
 public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 
@@ -92,7 +93,6 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 			failureMessage += "the columns %s where not expected.";
 		}
 
-
 		String notFoundString = notFound.stream().map(key -> columnsSpec.paths.get(key)).collect(Collectors.joining(", "));
 
 		if (!notFound.isEmpty() && !actualColumns.isEmpty()) {
@@ -106,6 +106,21 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 
 	}
 
+	public void assignsAliasesExactlyOnce() {
+
+		// TODO: this should eventually test that all inner columns are aliased exactly once when they are originally selected.
+		List<ActualColumn> aliasedColumns = new ArrayList<>();
+
+		List<ActualColumn> actualColumns = collectActualColumns();
+		for (ActualColumn column : actualColumns) {
+			if (!column.alias.isEmpty()) {
+				aliasedColumns.add(column);
+			}
+		}
+
+		assertThat(aliasedColumns).describedAs("The columns %s should not have aliases, but %s have.", actualColumns, aliasedColumns).isEmpty();
+	}
+
 	private List<ActualColumn> collectActualColumns() {
 
 		List<ActualColumn> actualColumns = new ArrayList<>();
@@ -113,7 +128,8 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 			selectItem.accept(new SelectItemVisitorAdapter() {
 				@Override
 				public void visit(SelectExpressionItem item) {
-					actualColumns.add(new ActualColumn(item.getExpression().toString(),item.getAlias() == null ? "" :  item.getAlias().toString()));
+					actualColumns.add(new ActualColumn(item.getExpression().toString(),
+							item.getAlias() == null ? "" : item.getAlias().toString()));
 				}
 			});
 		}
@@ -122,7 +138,7 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 
 	public SqlAssert selectsFrom(String tableName) {
 
-		Assertions.assertThat(getSelect().getFromItem().toString()) //
+		assertThat(getSelect().getFromItem().toString()) //
 				.isEqualTo(tableName);
 
 		return this;
@@ -154,7 +170,8 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 
 		public ColumnsSpec property(String pathString) {
 
-			PersistentPropertyPath<RelationalPersistentProperty> path = context.getPersistentPropertyPath(pathString, currentEntity.getType());
+			PersistentPropertyPath<RelationalPersistentProperty> path = context.getPersistentPropertyPath(pathString,
+					currentEntity.getType());
 
 			RelationalPersistentProperty leafProperty = path.getLeafProperty();
 			paths.put(leafProperty, pathString);
