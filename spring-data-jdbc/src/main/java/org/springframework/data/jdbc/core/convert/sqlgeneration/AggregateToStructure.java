@@ -16,12 +16,10 @@
 
 package org.springframework.data.jdbc.core.convert.sqlgeneration;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.springframework.data.jdbc.core.mapping.JdbcMappingContext;
+import org.springframework.data.mapping.PersistentPropertyPath;
 import org.springframework.data.mapping.PropertyHandler;
-import org.springframework.data.mapping.SimplePropertyHandler;
+import org.springframework.data.relational.core.mapping.PersistentPropertyPathExtension;
 import org.springframework.data.relational.core.mapping.RelationalPersistentEntity;
 import org.springframework.data.relational.core.mapping.RelationalPersistentProperty;
 
@@ -33,10 +31,10 @@ class AggregateToStructure {
 		this.context = context;
 	}
 
-	AnalyticStructureBuilder<RelationalPersistentEntity, RelationalPersistentProperty>.Select createSelectStructure(
+	AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.Select createSelectStructure(
 			RelationalPersistentEntity<?> aggregateRoot) {
 
-		AnalyticStructureBuilder<RelationalPersistentEntity, RelationalPersistentProperty> builder = new AnalyticStructureBuilder<>();
+		AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension> builder = new AnalyticStructureBuilder<>();
 
 		builder.addTable(aggregateRoot, td -> configureTableDefinition(aggregateRoot, td));
 		addReferencedEntities(builder, aggregateRoot);
@@ -45,7 +43,7 @@ class AggregateToStructure {
 	}
 
 	private void addReferencedEntities(
-			AnalyticStructureBuilder<RelationalPersistentEntity, RelationalPersistentProperty> builder,
+			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension> builder,
 			RelationalPersistentEntity<?> currentEntity) {
 
 		currentEntity.doWithProperties((PropertyHandler<RelationalPersistentProperty>) p -> {
@@ -56,19 +54,23 @@ class AggregateToStructure {
 		});
 	}
 
-	private AnalyticStructureBuilder<RelationalPersistentEntity, RelationalPersistentProperty>.TableDefinition configureTableDefinition(
+	private AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.TableDefinition configureTableDefinition(
 			RelationalPersistentEntity<?> aggregateRoot,
-			AnalyticStructureBuilder<RelationalPersistentEntity, RelationalPersistentProperty>.TableDefinition td) {
+			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.TableDefinition td) {
 
-		List<RelationalPersistentProperty> persistentProperties = new ArrayList<>();
-		aggregateRoot
-				.doWithProperties((SimplePropertyHandler) p -> persistentProperties.add((RelationalPersistentProperty) p));
-		for (RelationalPersistentProperty p : persistentProperties) {
+		for (PersistentPropertyPath<RelationalPersistentProperty> persistentPropertyPath : context
+				.findPersistentPropertyPaths(aggregateRoot.getType(),
+						(RelationalPersistentProperty rpp) -> rpp.getOwner().equals(aggregateRoot))) { // TODO: we are currently
+																																														// only handling a single
+																																														// level aggregate
+
+			RelationalPersistentProperty p = persistentPropertyPath.getLeafProperty();
+			PersistentPropertyPathExtension extPath = new PersistentPropertyPathExtension(context, persistentPropertyPath);
 			if (p.isIdProperty()) {
-				td = td.withId(p);
+				td = td.withId(extPath);
 			} else {
 				if (!p.isEntity()) {
-					td = td.withColumns(p);
+					td = td.withColumns(extPath);
 				}
 			}
 		}

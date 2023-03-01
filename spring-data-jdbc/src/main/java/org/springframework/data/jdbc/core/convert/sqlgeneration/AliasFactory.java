@@ -21,6 +21,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.function.Function;
 
+import org.springframework.data.mapping.PersistentProperty;
+import org.springframework.data.mapping.PersistentPropertyPath;
+import org.springframework.data.relational.core.mapping.PersistentPropertyPathExtension;
 import org.springframework.data.relational.core.mapping.RelationalPersistentEntity;
 import org.springframework.data.relational.core.mapping.RelationalPersistentProperty;
 
@@ -33,28 +36,35 @@ public class AliasFactory {
 	private int fkIndex = 0;
 
 	private final List<SingleAliasFactory> factories = Arrays.asList(
-			new SingleAliasFactory<>(AnalyticStructureBuilder.AnalyticView.class, "V"),
-			new SingleAliasFactory<>(AnalyticStructureBuilder.ForeignKey.class, "FK"),
-			new SingleAliasFactory<>(AnalyticStructureBuilder.RowNumber.class, "RN"),
-			new SingleAliasFactory<>(RelationalPersistentProperty.class, "C", RelationalPersistentProperty::getName),
-			new SingleAliasFactory<>(RelationalPersistentEntity.class, "T", rpe -> rpe.getTableName().toString()));
+			new DelegatingAliasFactory<>(AnalyticStructureBuilder.TableDefinition.class, td -> td.getTable()),
+			new DefaultAliasFactory<>(AnalyticStructureBuilder.ForeignKey.class, "FK"),
+			new DefaultAliasFactory<>(AnalyticStructureBuilder.AnalyticView.class, "V"),
+			new DefaultAliasFactory<>(AnalyticStructureBuilder.RowNumber.class, "RN"),
+			new DelegatingAliasFactory<>(PersistentPropertyPathExtension.class,  pppe -> pppe.getRequiredPersistentPropertyPath()),
+			new DelegatingAliasFactory<>(PersistentPropertyPath.class , ppp -> ppp.getRequiredLeafProperty()),
+			new DefaultAliasFactory<>(RelationalPersistentProperty.class, "C", pp -> pp.getName()),
+			new DefaultAliasFactory<>(RelationalPersistentEntity.class, "T", rpe -> rpe.getTableName().toString()));
 
 	String getAliasFor(Object key) {
 
-		String values = cache.computeIfAbsent(key, k -> createAlias(k));
-
-		return values;
-	}
-
-	private String createAlias(Object key) {
-
-		if (key instanceof AnalyticStructureBuilder.TableDefinition tableDefinition) {
-			return createAlias(tableDefinition.getTable());
+		String cachedAlias = cache.get(key);
+		if (cachedAlias != null) {
+			return cachedAlias;
 		}
 
 		for (SingleAliasFactory factory : factories) {
 			if (factory.applies(key)) {
-				return factory.next(key);
+				if (factory instanceof DefaultAliasFactory<?> daf) {
+					String alias = daf.next(key);
+					cache.put(key, alias);
+					return alias;
+				}
+				if (factory instanceof DelegatingAliasFactory<?> daf) {
+					String alias = getAliasFor(daf.getDelegateKey(key));
+					cache.put(key, alias);
+					return alias;
+				}
+				throw new IllegalStateException("AliasFactory of type %s is not supported".formatted(factory.getClass().toString()));
 			}
 		}
 
@@ -67,25 +77,32 @@ public class AliasFactory {
 		return lettersOnly.toUpperCase().substring(0, Math.min(MAX_NAME_HINT_LENGTH, lettersOnly.length()));
 	}
 
-	private class SingleAliasFactory<T> {
-		private final Class<T> type;
-		private final String prefix;
-		private final Function<T, String> suffixFunction;
-		private int index = 0;
+	private abstract class SingleAliasFactory<T> {
+		final Class<T> type;
 
-		private SingleAliasFactory(Class<T> type, String prefix) {
-			this(type, prefix, t -> "");
-		}
-
-		private SingleAliasFactory(Class<T> type, String prefix, Function<T, String> suffixFunction) {
-
+		private SingleAliasFactory(Class<T> type) {
 			this.type = type;
-			this.prefix = prefix;
-			this.suffixFunction = suffixFunction;
 		}
 
 		boolean applies(Object key) {
 			return type.isInstance(key);
+		}
+	}
+
+	private class DefaultAliasFactory<T> extends SingleAliasFactory<T> {
+		private final String prefix;
+		private final Function<T, String> suffixFunction;
+		private int index = 0;
+
+		private DefaultAliasFactory(Class<T> type, String prefix) {
+			this(type, prefix, t -> "");
+		}
+
+		private DefaultAliasFactory(Class<T> type, String prefix, Function<T, String> suffixFunction) {
+
+			super(type);
+			this.prefix = prefix;
+			this.suffixFunction = suffixFunction;
 		}
 
 		String next(Object key) {
@@ -103,6 +120,21 @@ public class AliasFactory {
 
 		String suffix(T t) {
 			return suffixFunction.apply(t);
+		}
+	}
+
+	private class DelegatingAliasFactory<T> extends SingleAliasFactory<T> {
+		private final Function<T, Object> delegateKey;
+
+		private DelegatingAliasFactory(Class<T> type, Function<T, Object> delegateKey) {
+
+			super(type);
+
+			this.delegateKey = delegateKey;
+		}
+
+		private Object getDelegateKey(Object key) {
+			return delegateKey.apply((T)key);
 		}
 	}
 }

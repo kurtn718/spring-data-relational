@@ -19,11 +19,10 @@ package org.springframework.data.jdbc.core.convert.sqlgeneration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.springframework.data.relational.core.mapping.PersistentPropertyPathExtension;
 import org.springframework.data.relational.core.mapping.RelationalPersistentEntity;
-import org.springframework.data.relational.core.mapping.RelationalPersistentProperty;
 import org.springframework.data.relational.core.sql.*;
 
 class StructureToSelect {
@@ -39,7 +38,7 @@ class StructureToSelect {
 	}
 
 	SelectBuilder.BuildSelect createSelect(
-			AnalyticStructureBuilder<RelationalPersistentEntity, RelationalPersistentProperty>.Select queryStructure) {
+			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.Select queryStructure) {
 
 		if (queryStructure instanceof AnalyticStructureBuilder.TableDefinition tableDefinition) {
 			System.out.println("table " + tableDefinition.getTable());
@@ -62,12 +61,12 @@ class StructureToSelect {
 
 	private SelectBuilder.BuildSelect createView(AnalyticStructureBuilder.AnalyticView analyticView) {
 		return createSelect(
-				(AnalyticStructureBuilder<RelationalPersistentEntity, RelationalPersistentProperty>.Select) analyticView
+				(AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.Select) analyticView
 						.getFroms().get(0));
 	}
 
 	private SelectBuilder.SelectFromAndJoinCondition createJoin(
-			AnalyticStructureBuilder<RelationalPersistentEntity, RelationalPersistentProperty>.AnalyticJoin analyticJoin) {
+			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticJoin analyticJoin) {
 
 		AnalyticStructureBuilder.Select child = analyticJoin.getChild();
 		SelectBuilder.BuildSelect childSelect = createSelect(child);
@@ -75,7 +74,7 @@ class StructureToSelect {
 
 		Collection<Expression> columns = getSelectList(child, childQuery, false);
 
-		AnalyticStructureBuilder<RelationalPersistentEntity, RelationalPersistentProperty>.Select parent = analyticJoin
+		AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.Select parent = analyticJoin
 				.getParent();
 		TableLike parentTable = tableFor(parent);
 		columns.addAll(getSelectList(parent, parentTable, false));
@@ -91,12 +90,12 @@ class StructureToSelect {
 	}
 
 	private Collection<Expression> getSelectList(
-			AnalyticStructureBuilder<RelationalPersistentEntity, RelationalPersistentProperty>.Select parent,
+			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.Select parent,
 			TableLike parentTable, boolean declareAlias) {
 
 		Collection<Expression> tableColumns = new ArrayList<>();
 
-		for (AnalyticStructureBuilder<RelationalPersistentEntity, RelationalPersistentProperty>.AnalyticColumn analyticColumn : parent
+		for (AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticColumn analyticColumn : parent
 				.getColumns()) {
 
 			if (analyticColumn instanceof AnalyticStructureBuilder.ForeignKey fk) {
@@ -105,13 +104,14 @@ class StructureToSelect {
 			}
 			Expression column;
 
-			RelationalPersistentProperty property = analyticColumn.getColumn();
+			PersistentPropertyPathExtension property = analyticColumn.getColumn();
 			if (property == null) {
 				// TODO: handle all the special join management columns.
 				System.out.println("wip: " + analyticColumn);
 				if (analyticColumn instanceof AnalyticStructureBuilder.RowNumber rn) {
 
-					Column[] partitionBys = ((Stream<Column>) rn.getPartitionBy().stream().map(ac -> parentTable.column(aliasFactory.getAliasFor(ac)))).toArray(Column[]::new);
+					Column[] partitionBys = ((Stream<Column>) rn.getPartitionBy().stream()
+							.map(ac -> parentTable.column(aliasFactory.getAliasFor(ac)))).toArray(Column[]::new);
 
 					column = AnalyticFunction.create("ROW_NUMBER").partitionBy(partitionBys).as(aliasFactory.getAliasFor(rn));
 				} else {
@@ -128,7 +128,7 @@ class StructureToSelect {
 		return tableColumns;
 	}
 
-	private Column createColumn(TableLike parentTable, RelationalPersistentProperty property, boolean declareAlias) {
+	private Column createColumn(TableLike parentTable, PersistentPropertyPathExtension property, boolean declareAlias) {
 
 		String alias = getAliasFor(property);
 
@@ -143,9 +143,9 @@ class StructureToSelect {
 	}
 
 	private TableLike tableFor(
-			AnalyticStructureBuilder<RelationalPersistentEntity, RelationalPersistentProperty>.Select parent) {
+			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.Select parent) {
 
-		if (parent instanceof AnalyticStructureBuilder<RelationalPersistentEntity, RelationalPersistentProperty>.TableDefinition tableDefinition) {
+		if (parent instanceof AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.TableDefinition tableDefinition) {
 			return Table.create(tableDefinition.getTable().getTableName()).as(getAliasFor(parent));
 		}
 
@@ -153,11 +153,11 @@ class StructureToSelect {
 	}
 
 	private Condition createJoinCondition(
-			AnalyticStructureBuilder<RelationalPersistentEntity, RelationalPersistentProperty>.AnalyticJoin analyticJoin) {
+			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticJoin analyticJoin) {
 
-		for (AnalyticStructureBuilder<RelationalPersistentEntity, RelationalPersistentProperty>.JoinCondition joinCondition : analyticJoin
+		for (AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.JoinCondition joinCondition : analyticJoin
 				.getConditions()) {
-			AnalyticStructureBuilder<RelationalPersistentEntity, RelationalPersistentProperty>.AnalyticColumn left = joinCondition
+			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticColumn left = joinCondition
 					.getLeft();
 			joinCondition.getRight();
 
@@ -167,23 +167,23 @@ class StructureToSelect {
 	}
 
 	private SelectBuilder.SelectFromAndJoin createSimpleSelect(
-			AnalyticStructureBuilder<RelationalPersistentEntity, RelationalPersistentProperty>.TableDefinition tableDefinition) {
+			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.TableDefinition tableDefinition) {
 
-		List<? extends AnalyticStructureBuilder<RelationalPersistentEntity, RelationalPersistentProperty>.AnalyticColumn> analyticColumns = tableDefinition
+		List<? extends AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticColumn> analyticColumns = tableDefinition
 				.getColumns();
 
 		Collection<Expression> tableColumns = new ArrayList<>();
 		TableLike table = tableFor(tableDefinition);
-		for (AnalyticStructureBuilder<RelationalPersistentEntity, RelationalPersistentProperty>.AnalyticColumn analyticColumn : analyticColumns) {
+		for (AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticColumn analyticColumn : analyticColumns) {
 
-			if (analyticColumn instanceof AnalyticStructureBuilder<RelationalPersistentEntity, RelationalPersistentProperty>.ForeignKey foreignKey) {
+			if (analyticColumn instanceof AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.ForeignKey foreignKey) {
 
 				SqlIdentifier columnName = createFkColumnName(foreignKey);
 				String alias = aliasFactory.getAliasFor(foreignKey);
 				tableColumns.add(table.column(columnName).as(alias));
 				continue;
 			}
-			RelationalPersistentProperty property = analyticColumn.getColumn();
+			PersistentPropertyPathExtension property = analyticColumn.getColumn();
 			if (property == null) {
 				// TODO: handle all the special join management columns.
 				continue;
@@ -199,7 +199,8 @@ class StructureToSelect {
 		return from;
 	}
 
-	private static SqlIdentifier createFkColumnName(AnalyticStructureBuilder<RelationalPersistentEntity, RelationalPersistentProperty>.ForeignKey foreignKey) {
+	private static SqlIdentifier createFkColumnName(
+			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.ForeignKey foreignKey) {
 		// TODO: this is currently quite wrong
 		return foreignKey.getForeignKeyColumn().getColumn().getColumnName();
 	}

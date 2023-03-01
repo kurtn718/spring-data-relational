@@ -19,8 +19,8 @@ package org.springframework.data.jdbc.core.convert.sqlgeneration;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.jdbc.core.mapping.JdbcMappingContext;
+import org.springframework.data.relational.core.mapping.PersistentPropertyPathExtension;
 import org.springframework.data.relational.core.mapping.RelationalPersistentEntity;
-import org.springframework.data.relational.core.mapping.RelationalPersistentProperty;
 
 class AggregateToStructureUnitTests {
 
@@ -32,16 +32,21 @@ class AggregateToStructureUnitTests {
 
 	@Test
 	void simpleTable() {
-		AnalyticStructureBuilder<RelationalPersistentEntity, RelationalPersistentProperty>.Select select = ats
+		AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.Select select = ats
 				.createSelectStructure(dummyEntity);
 
 		AnalyticAssertions.assertThat(select) //
 				.hasExactColumns( //
-						dummyEntity.getPersistentProperty("id"), //
-						dummyEntity.getPersistentProperty("aColumn"))
+						path("id"), //
+						path("aColumn"))
 				.isInstanceOf(AnalyticStructureBuilder.TableDefinition.class)
-				.hasId(dummyEntity.getPersistentProperty("id"));
+				.hasId(new PersistentPropertyPathExtension(context, context.getPersistentPropertyPath( "id", dummyEntity.getType())));
 	}
+
+	private PersistentPropertyPathExtension path(String path) {
+		return new PersistentPropertyPathExtension(context, context.getPersistentPropertyPath(path, dummyEntity.getType()));
+	}
+
 
 	static class DummyEntity {
 		@Id Long id;

@@ -16,6 +16,8 @@
 
 package org.springframework.data.jdbc.core.convert.sqlgeneration;
 
+import static org.assertj.core.api.Assertions.*;
+
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.statement.Statement;
@@ -38,8 +40,6 @@ import org.springframework.data.mapping.PersistentPropertyPath;
 import org.springframework.data.relational.core.mapping.RelationalMappingContext;
 import org.springframework.data.relational.core.mapping.RelationalPersistentEntity;
 import org.springframework.data.relational.core.mapping.RelationalPersistentProperty;
-
-import static org.assertj.core.api.Assertions.*;
 
 public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 
@@ -70,7 +70,7 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 		// check normal property based columns
 		columnsSpec.foreach(aliasFactory, (ColumnSpec columnSpec) -> {
 			for (ActualColumn currentColumn : actualColumns) {
-				if (columnSpec.matches(currentColumn)){
+				if (columnSpec.matches(currentColumn)) {
 					actualColumns.remove(currentColumn);
 					return;
 				}
@@ -93,7 +93,13 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 			failureMessage += "the columns %s where not expected.";
 		}
 
-		String notFoundString = notFound.stream().map(key -> columnsSpec.paths.get(key)).collect(Collectors.joining(", "));
+		String notFoundString = notFound.stream().map(key -> {
+			if (key instanceof PropertyBasedColumn pbc) {
+				return columnsSpec.paths.get(pbc.property);
+			} else {
+				return key.toString();
+			}
+		}).collect(Collectors.joining(", "));
 
 		if (!notFound.isEmpty() && !actualColumns.isEmpty()) {
 			throw failure(failureMessage, getSelect().toString(), columnsSpec, notFoundString, actualColumns);
@@ -108,7 +114,8 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 
 	public void assignsAliasesExactlyOnce() {
 
-		// TODO: this should eventually test that all inner columns are aliased exactly once when they are originally selected.
+		// TODO: this should eventually test that all inner columns are aliased exactly once when they are originally
+		// selected.
 		List<ActualColumn> aliasedColumns = new ArrayList<>();
 
 		List<ActualColumn> actualColumns = collectActualColumns();
@@ -119,7 +126,8 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 			}
 		}
 
-		assertThat(aliasedColumns).describedAs("The columns %s should not have aliases, but %s have.", actualColumns, aliasedColumns).isEmpty();
+		assertThat(aliasedColumns)
+				.describedAs("The columns %s should not have aliases, but %s have.", actualColumns, aliasedColumns).isEmpty();
 	}
 
 	private List<ActualColumn> collectActualColumns() {
@@ -204,7 +212,8 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 		boolean matches(ActualColumn actualColumn);
 	}
 
-	private record PropertyBasedColumn(AliasFactory aliasFactory, RelationalPersistentProperty property) implements ColumnSpec{
+	private record PropertyBasedColumn(AliasFactory aliasFactory,
+			RelationalPersistentProperty property) implements ColumnSpec {
 
 		@Override
 		public boolean matches(ActualColumn actualColumn) {
@@ -217,7 +226,8 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 		}
 
 	}
-	private record RowNumberSpec(AliasFactory aliasFactory, Object someObject) implements ColumnSpec{
+
+	private record RowNumberSpec(AliasFactory aliasFactory, Object someObject) implements ColumnSpec {
 
 		@Override
 		public boolean matches(ActualColumn actualColumn) {
