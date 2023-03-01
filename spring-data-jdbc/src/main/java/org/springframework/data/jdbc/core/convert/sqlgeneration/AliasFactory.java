@@ -16,7 +16,10 @@
 
 package org.springframework.data.jdbc.core.convert.sqlgeneration;
 
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
+import java.util.function.Function;
 
 import org.springframework.data.relational.core.mapping.RelationalPersistentEntity;
 import org.springframework.data.relational.core.mapping.RelationalPersistentProperty;
@@ -26,10 +29,15 @@ public class AliasFactory {
 	public static final int MAX_NAME_HINT_LENGTH = 20;
 	HashMap<Object, String> cache = new HashMap<>();
 	private int tableIndex = 0;
-	private int viewIndex = 0;
 	private int columnIndex = 0;
-	private int rnIndex = 0;
 	private int fkIndex = 0;
+
+	private final List<SingleAliasFactory> factories = Arrays.asList(
+			new SingleAliasFactory<>(AnalyticStructureBuilder.AnalyticView.class, "V"),
+			new SingleAliasFactory<>(AnalyticStructureBuilder.ForeignKey.class, "FK"),
+			new SingleAliasFactory<>(AnalyticStructureBuilder.RowNumber.class, "RN"),
+			new SingleAliasFactory<>(RelationalPersistentProperty.class, "C", RelationalPersistentProperty::getName),
+			new SingleAliasFactory<>(RelationalPersistentEntity.class, "T", rpe -> rpe.getTableName().toString()));
 
 	String getAliasFor(Object key) {
 
@@ -44,29 +52,12 @@ public class AliasFactory {
 			return createAlias(tableDefinition.getTable());
 		}
 
-		if (key instanceof RelationalPersistentEntity rpe) {
-
-			String baseTableName = rpe.getTableName().toString();
-			return "T%04d_".formatted(++tableIndex) + sanitize(baseTableName);
+		for (SingleAliasFactory factory : factories) {
+			if (factory.applies(key)) {
+				return factory.next(key);
+			}
 		}
 
-		if (key instanceof RelationalPersistentProperty rpp) {
-
-			String baseColumnName = rpp.getName();
-			return "C%04d_".formatted(++columnIndex) + sanitize(baseColumnName);
-		}
-
-		if (key instanceof AnalyticStructureBuilder.AnalyticView) {
-			return "V%04d".formatted(++viewIndex);
-		}
-
-		if (key instanceof AnalyticStructureBuilder.RowNumber) {
-			return "RN%04d".formatted(++rnIndex);
-		}
-
-		if (key instanceof AnalyticStructureBuilder.ForeignKey) {
-			return "FK%04d".formatted(++fkIndex);
-		}
 		throw new UnsupportedOperationException("can't generate alias for " + key);
 	}
 
@@ -76,4 +67,42 @@ public class AliasFactory {
 		return lettersOnly.toUpperCase().substring(0, Math.min(MAX_NAME_HINT_LENGTH, lettersOnly.length()));
 	}
 
+	private class SingleAliasFactory<T> {
+		private final Class<T> type;
+		private final String prefix;
+		private final Function<T, String> suffixFunction;
+		private int index = 0;
+
+		private SingleAliasFactory(Class<T> type, String prefix) {
+			this(type, prefix, t -> "");
+		}
+
+		private SingleAliasFactory(Class<T> type, String prefix, Function<T, String> suffixFunction) {
+
+			this.type = type;
+			this.prefix = prefix;
+			this.suffixFunction = suffixFunction;
+		}
+
+		boolean applies(Object key) {
+			return type.isInstance(key);
+		}
+
+		String next(Object key) {
+
+			if (!type.isInstance(key)) {
+				throw new IllegalStateException("This SingleAliasFactory only supports keys of type " + type);
+			}
+
+			String suffix = suffix((T) key);
+			if (!suffix.isEmpty()) {
+				suffix = "_" + sanitize(suffix);
+			}
+			return prefix + "%04d".formatted(++index) + suffix;
+		}
+
+		String suffix(T t) {
+			return suffixFunction.apply(t);
+		}
+	}
 }

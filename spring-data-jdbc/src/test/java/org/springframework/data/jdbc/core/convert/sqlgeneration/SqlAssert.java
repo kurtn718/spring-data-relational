@@ -65,26 +65,18 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 
 		List<ActualColumn> actualColumns = collectActualColumns();
 
-		List<RelationalPersistentProperty> notFound = new ArrayList<>();
+		List<ColumnSpec> notFound = new ArrayList<>();
 
 		// check normal property based columns
-		columnsSpec.foreach((RelationalPersistentProperty property) -> {
+		columnsSpec.foreach(aliasFactory, (ColumnSpec columnSpec) -> {
 			for (ActualColumn currentColumn : actualColumns) {
-				String alias = aliasFactory.getAliasFor(property);
-				if (currentColumn.alias.equals(alias) || currentColumn.column.equals(alias)) {
+				if (columnSpec.matches(currentColumn)){
 					actualColumns.remove(currentColumn);
 					return;
 				}
 			}
-			notFound.add(property);
+			notFound.add(columnSpec);
 		});
-
-		// check special properties
-		for (Object specialColumn : columnsSpec.specialColumns) {
-			for (ActualColumn actualColumn : actualColumns) {
-			}
-		}
-
 
 		if (actualColumns.isEmpty() && notFound.isEmpty()) {
 			return this;
@@ -121,7 +113,8 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 
 		List<ActualColumn> actualColumns = collectActualColumns();
 		for (ActualColumn column : actualColumns) {
-			if (!column.alias.isEmpty()) {
+			// TODO: this should be a "is simple column" method in the ActualColumn class
+			if (!column.alias.isEmpty() && !column.expression.startsWith("ROW_NUMBER() OVER (PARTITION BY ")) {
 				aliasedColumns.add(column);
 			}
 		}
@@ -195,14 +188,42 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 			return this;
 		}
 
-		public void foreach(Consumer<? super RelationalPersistentProperty> propertyConsumer) {
-			paths.keySet().forEach(propertyConsumer);
+		public void foreach(AliasFactory aliasFactory, Consumer<? super ColumnSpec> specConsumer) {
+
+			paths.keySet().forEach(p -> specConsumer.accept(new PropertyBasedColumn(aliasFactory, p)));
+			specialColumns.forEach(o -> specConsumer.accept(new RowNumberSpec(aliasFactory, o)));
 		}
 
 		@Override
 		public String toString() {
 			return paths.values().toString();
 		}
+	}
+
+	private interface ColumnSpec {
+		boolean matches(ActualColumn actualColumn);
+	}
+
+	private record PropertyBasedColumn(AliasFactory aliasFactory, RelationalPersistentProperty property) implements ColumnSpec{
+
+		@Override
+		public boolean matches(ActualColumn actualColumn) {
+
+			String alias = aliasFactory.getAliasFor(property);
+			if (actualColumn.alias.equals(alias) || actualColumn.column.equals(alias)) {
+				return true;
+			}
+			return false;
+		}
+
+	}
+	private record RowNumberSpec(AliasFactory aliasFactory, Object someObject) implements ColumnSpec{
+
+		@Override
+		public boolean matches(ActualColumn actualColumn) {
+			return actualColumn.expression.startsWith("ROW_NUMBER() OVER (PARTITION BY");
+		}
+
 	}
 
 	private record ActualColumn(String expression, String table, String column, String alias) {
@@ -222,7 +243,8 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 		static String column(String expression) {
 
 			int index = expression.indexOf(".");
-			if (index > 0) {
+			int spaceIndex = expression.indexOf(" ");
+			if (index > 0 && (spaceIndex < 0 || index < spaceIndex)) {
 				return expression.substring(index + 1);
 			}
 			return expression;

@@ -84,7 +84,7 @@ class AnalyticSqlGeneratorTests {
 								.property("id") //
 								.property( "dummy.id") //
 								.property( "dummy.aColumn") //
-								.rowNumber("dummy") //
+								.rowNumber("row number") //
 				).assignsAliasesExactlyOnce();
 	}
 
