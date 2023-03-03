@@ -40,7 +40,7 @@ class AnalyticSqlGeneratorTests {
 		String sql = sqlGenerator.findAll(dummyEntity);
 
 		assertThatParsed(sql).withAliases(aliasFactory)//
-				.hasColumns( //
+				.hasExactColumns( //
 						from(dummyEntity) //
 								.property("id") //
 								.property("aColumn"));
@@ -56,36 +56,38 @@ class AnalyticSqlGeneratorTests {
 		System.out.println(sql);
 
 		/*
-		SELECT
-		V0001.a_column AS C0001_ACOLUMN,
-				V0001.id AS C0002_ID,
-		T0002_SINGLEREFERENCE.id AS C0003_ID
-		FROM single_reference T0002_SINGLEREFERENCE
-		FULL OUTER JOIN (
-				SELECT
-				T0001_DUMMYENTITY.a_column AS C0001_ACOLUMN,
-				T0001_DUMMYENTITY.id AS C0002_ID
-				FROM dummy_entity T0001_DUMMYENTITY
-		) V0001 ON 1 = 2
+SELECT
+  V0001.C0001_ACOLUMN,
+  V0001.C0002_ID,
+  ROW_NUMBER() OVER(PARTITION BY V0001.FK0001) AS RN0001,
+  T0002_SINGLEREFERENCE.C0003_ID
+FROM single_reference T0002_SINGLEREFERENCE
+FULL OUTER JOIN (
+  SELECT
+    T0001_DUMMYENTITY.a_column AS C0001_ACOLUMN,
+    T0001_DUMMYENTITY.id AS C0002_ID,
+    T0001_DUMMYENTITY.id AS FK0001
+  FROM dummy_entity T0001_DUMMYENTITY
+) V0001 ON 1 = 2
 
 
-		todos:
-
-		- join conditions
-		- rownumber in view
-		- foreign keys
+todo
+correct fk0001
+join condition
+ rn = 1
+ t2.id = t1.single_reference_id
 */
-
 
 		assertThatParsed(sql) //
 				.withAliases(aliasFactory) //
-				.hasColumns( //
+				.hasExactColumns( //
 						from(singleRefEntity) //
 								.property("id") //
-								.property( "dummy.id") //
-								.property( "dummy.aColumn") //
+								.property("dummy.id") //
+								.property("dummy.aColumn") //
 								.rowNumber("row number") //
-				).assignsAliasesExactlyOnce();
+				).assignsAliasesExactlyOnce() //
+				.selectsInternally("dummy", "SINGLEREFENCE");
 	}
 
 	private ColumnsSpec from(RelationalPersistentEntity<?> entity) {

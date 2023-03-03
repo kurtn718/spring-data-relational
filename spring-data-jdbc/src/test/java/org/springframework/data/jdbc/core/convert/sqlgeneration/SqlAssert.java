@@ -20,22 +20,28 @@ import static org.assertj.core.api.Assertions.*;
 
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
+import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.statement.Statement;
+import net.sf.jsqlparser.statement.select.Join;
 import net.sf.jsqlparser.statement.select.PlainSelect;
 import net.sf.jsqlparser.statement.select.Select;
 import net.sf.jsqlparser.statement.select.SelectExpressionItem;
 import net.sf.jsqlparser.statement.select.SelectItem;
 import net.sf.jsqlparser.statement.select.SelectItemVisitorAdapter;
+import net.sf.jsqlparser.statement.select.SubSelect;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.assertj.core.api.AbstractAssert;
 import org.assertj.core.api.Assertions;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.data.mapping.PersistentPropertyPath;
 import org.springframework.data.relational.core.mapping.RelationalMappingContext;
 import org.springframework.data.relational.core.mapping.RelationalPersistentEntity;
@@ -61,7 +67,7 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 		throw new IllegalStateException("This should be unreachable");
 	}
 
-	public SqlAssert hasColumns(ColumnsSpec columnsSpec) {
+	public SqlAssert hasExactColumns(ColumnsSpec columnsSpec) {
 
 		List<ActualColumn> actualColumns = collectActualColumns();
 
@@ -112,7 +118,7 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 
 	}
 
-	public void assignsAliasesExactlyOnce() {
+	public SqlAssert assignsAliasesExactlyOnce() {
 
 		// TODO: this should eventually test that all inner columns are aliased exactly once when they are originally
 		// selected.
@@ -128,8 +134,60 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 
 		assertThat(aliasedColumns)
 				.describedAs("The columns %s should not have aliases, but %s have.", actualColumns, aliasedColumns).isEmpty();
+
+		return this;
 	}
 
+	public SqlAssert selectsInternally(String pathToEntity, String columnName) {
+
+		Optional<Column> optionalColumn = allInternalSelectItems(getSelect())
+				.map(x -> {
+					System.out.println(x);
+					return x;
+				})
+				.flatMap(si -> {
+
+					if (si instanceof SelectExpressionItem sei) {
+						if (sei.getExpression() instanceof Column c)
+							return Stream.of(c);
+					}
+					return Stream.empty();
+				})
+				.filter(c -> c.getColumnName().equals(columnName))
+				.findFirst();
+
+		assertThat(optionalColumn).describedAs("No column of name " + columnName + " found.").isPresent();
+
+		return this;
+	}
+
+	private Stream<SelectItem> allInternalSelectItems(PlainSelect select) {
+
+		return allSelects(select).flatMap(s -> s.getSelectItems().stream());
+	}
+
+	private Stream<PlainSelect> allSelects(PlainSelect select) {
+
+		return Stream.concat(Stream.of(select), getSubSelects(select));
+	}
+
+	@NotNull
+	private static Stream<PlainSelect> getSubSelects(PlainSelect select) {
+		return Stream.of(select).flatMap(s -> {
+			List<Join> joins = s.getJoins();
+			if (joins == null) {
+				return Stream.empty();
+			}
+			return joins.stream() //
+					.map(j -> j.getRightItem()) //
+					.filter(fi -> fi instanceof SubSelect) //
+					.map(ss -> (PlainSelect) ((SubSelect) ss).getSelectBody());
+		});
+	}
+
+	/**
+	 * @return a list of select list elements that are queried for. Doesn't look at internal queries
+	 */
 	private List<ActualColumn> collectActualColumns() {
 
 		List<ActualColumn> actualColumns = new ArrayList<>();
