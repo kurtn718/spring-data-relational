@@ -33,6 +33,7 @@ import com.tngtech.archunit.library.dependencies.SlicesRuleDefinition;
  *
  * @author Jens Schauder
  */
+@Disabled("To be replaced with ArchUnit")
 public class DependencyTests {
 
 	@Test // DATAJDBC-114
