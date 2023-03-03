@@ -72,7 +72,6 @@ FULL OUTER JOIN (
 
 
 todo
-correct fk0001
 join condition
  rn = 1
  t2.id = t1.single_reference_id
@@ -87,7 +86,9 @@ join condition
 								.property("dummy.aColumn") //
 								.rowNumber("row number") //
 				).assignsAliasesExactlyOnce() //
-				.selectsInternally("dummy", "single_reference");
+				.selectsInternally("dummy", "single_reference")
+
+		;
 	}
 
 	private ColumnsSpec from(RelationalPersistentEntity<?> entity) {

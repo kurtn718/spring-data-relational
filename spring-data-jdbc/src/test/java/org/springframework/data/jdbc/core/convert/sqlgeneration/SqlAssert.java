@@ -141,7 +141,6 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 	public SqlAssert selectsInternally(String pathToEntity, String columnName) {
 
 		Optional<Column> optionalColumn = allInternalSelectItems(getSelect()).map(x -> {
-			System.out.println(x);
 			return x;
 		}).flatMap(si -> {
 

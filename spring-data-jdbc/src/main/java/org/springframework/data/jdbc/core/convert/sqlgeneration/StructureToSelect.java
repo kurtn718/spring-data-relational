@@ -41,18 +41,15 @@ class StructureToSelect {
 			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.Select queryStructure) {
 
 		if (queryStructure instanceof AnalyticStructureBuilder.TableDefinition tableDefinition) {
-			System.out.println("table " + tableDefinition.getTable());
 			return createSimpleSelect(tableDefinition);
 		}
 
 		if (queryStructure instanceof AnalyticStructureBuilder.AnalyticJoin analyticJoin) {
-			System.out.println("join");
 			SelectBuilder.SelectFromAndJoinCondition join = createJoin(analyticJoin);
 			return join;
 		}
 
 		if (queryStructure instanceof AnalyticStructureBuilder.AnalyticView analyticView) {
-			System.out.println("view");
 			return createView(analyticView);
 		}
 
@@ -107,7 +104,6 @@ class StructureToSelect {
 			PersistentPropertyPathExtension property = analyticColumn.getColumn();
 			if (property == null) {
 				// TODO: handle all the special join management columns.
-				System.out.println("wip: " + analyticColumn);
 				if (analyticColumn instanceof AnalyticStructureBuilder.RowNumber rn) {
 
 					Column[] partitionBys = ((Stream<Column>) rn.getPartitionBy().stream()
@@ -122,8 +118,6 @@ class StructureToSelect {
 			}
 
 			tableColumns.add(column);
-			System.out.println("column " + column);
-
 		}
 		return tableColumns;
 	}
