@@ -128,14 +128,14 @@ class StructureToSelect {
 		return tableColumns;
 	}
 
-	private Column createColumn(TableLike parentTable, PersistentPropertyPathExtension property, boolean declareAlias) {
+	private Column createColumn(TableLike parentTable, PersistentPropertyPathExtension path, boolean declareAlias) {
 
-		String alias = getAliasFor(property);
+		String alias = getAliasFor(path);
 
 		if (declareAlias) {
 
 			return parentTable //
-					.column(property.getColumnName()) //
+					.column(path.getColumnName()) //
 					.as(alias);
 		} else {
 			return parentTable.column(alias);
@@ -191,7 +191,6 @@ class StructureToSelect {
 			SqlIdentifier columnName = property.getColumnName();
 			Column column = table.column(columnName).as(getAliasFor(property));
 			tableColumns.add(column);
-			System.out.println("column " + column);
 
 		}
 
@@ -201,7 +200,7 @@ class StructureToSelect {
 
 	private static SqlIdentifier createFkColumnName(
 			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.ForeignKey foreignKey) {
-		// TODO: this is currently quite wrong
-		return foreignKey.getForeignKeyColumn().getColumn().getColumnName();
+
+		return foreignKey.getForeignKeyColumn().getColumn().getReverseColumnName();
 	}
 }

@@ -140,21 +140,17 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 
 	public SqlAssert selectsInternally(String pathToEntity, String columnName) {
 
-		Optional<Column> optionalColumn = allInternalSelectItems(getSelect())
-				.map(x -> {
-					System.out.println(x);
-					return x;
-				})
-				.flatMap(si -> {
+		Optional<Column> optionalColumn = allInternalSelectItems(getSelect()).map(x -> {
+			System.out.println(x);
+			return x;
+		}).flatMap(si -> {
 
-					if (si instanceof SelectExpressionItem sei) {
-						if (sei.getExpression() instanceof Column c)
-							return Stream.of(c);
-					}
-					return Stream.empty();
-				})
-				.filter(c -> c.getColumnName().equals(columnName))
-				.findFirst();
+			if (si instanceof SelectExpressionItem sei) {
+				if (sei.getExpression()instanceof Column c)
+					return Stream.of(c);
+			}
+			return Stream.empty();
+		}).filter(c -> c.getColumnName().equals(columnName)).findFirst();
 
 		assertThat(optionalColumn).describedAs("No column of name " + columnName + " found.").isPresent();
 

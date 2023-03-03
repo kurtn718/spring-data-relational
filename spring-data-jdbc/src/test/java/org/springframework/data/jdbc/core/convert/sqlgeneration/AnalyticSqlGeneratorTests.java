@@ -87,7 +87,7 @@ join condition
 								.property("dummy.aColumn") //
 								.rowNumber("row number") //
 				).assignsAliasesExactlyOnce() //
-				.selectsInternally("dummy", "SINGLEREFENCE");
+				.selectsInternally("dummy", "single_reference");
 	}
 
 	private ColumnsSpec from(RelationalPersistentEntity<?> entity) {
