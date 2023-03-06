@@ -158,8 +158,7 @@ class StructureToSelect {
 			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticColumn right = joinCondition
 					.getRight();
 
-			Comparison newCondition = Conditions.isEqual(expressionFor(parentTable, left),
-					expressionFor(childQuery, right));
+			Comparison newCondition = Conditions.isEqual(expressionFor(parentTable, left), expressionFor(childQuery, right));
 			if (condition == null) {
 				condition = newCondition;
 			} else {
@@ -172,14 +171,18 @@ class StructureToSelect {
 	private Expression expressionFor(TableLike parent,
 			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticColumn analyticColumn) {
 
-		System.out.println("cond-expr \t" + analyticColumn);
-
 		if (analyticColumn instanceof AnalyticStructureBuilder.Literal al) {
 			return SQL.literalOf(al.getValue());
 		}
 		if (analyticColumn instanceof AnalyticStructureBuilder.ForeignKey fk) {
 			return parent.column(getAliasFor(fk));
 		}
+		if (analyticColumn instanceof AnalyticStructureBuilder.RowNumber rn) {
+			return parent.column(getAliasFor(rn));
+		}
+
+		System.out.println("unresolved cond-expr \t" + analyticColumn);
+
 		return Expressions.just("shrug");
 	}
 
