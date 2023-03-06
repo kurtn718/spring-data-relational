@@ -149,15 +149,40 @@ class StructureToSelect {
 	private Condition createJoinCondition(
 			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticJoin analyticJoin) {
 
+		Condition condition = null;
 		for (AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.JoinCondition joinCondition : analyticJoin
 				.getConditions()) {
+
 			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticColumn left = joinCondition
 					.getLeft();
-			joinCondition.getRight();
+			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticColumn right = joinCondition.getRight();
 
-			return Conditions.isEqual(Expressions.just("1"), Expressions.just("2"));
+
+			Comparison newCondition = Conditions.isEqual(expressionFor(analyticJoin.getParent(), left), expressionFor(analyticJoin.getChild(), right));
+			if (condition == null) {
+				condition = newCondition;
+			}else {
+				condition = condition.and(newCondition);
+			}
 		}
-		return null;
+		return condition;
+	}
+
+	private Expression expressionFor(AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.Select parent, AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticColumn analyticColumn) {
+
+		System.out.println("cond-expr \t" + analyticColumn);
+
+		if (analyticColumn instanceof AnalyticStructureBuilder.Literal al) {
+			return SQL.literalOf(al.getValue());
+		}
+//		if (analyticColumn instanceof AnalyticStructureBuilder.ForeignKey fk) {
+//
+//			SqlIdentifier fkColumnName = createFkColumnName(fk);
+//
+//
+//			return fkColumnName;
+//		}
+		return Expressions.just("shrug");
 	}
 
 	private SelectBuilder.SelectFromAndJoin createSimpleSelect(
