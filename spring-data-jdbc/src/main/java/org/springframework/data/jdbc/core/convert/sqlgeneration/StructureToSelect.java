@@ -78,7 +78,7 @@ class StructureToSelect {
 
 		SelectBuilder.SelectFromAndJoin selectAndParent = StatementBuilder.select(columns).from(parentTable);
 
-		Condition condition = createJoinCondition(analyticJoin);
+		Condition condition = createJoinCondition(parentTable, childQuery, analyticJoin);
 		return selectAndParent.fullOuterJoin(childQuery).on(condition);
 	}
 
@@ -146,7 +146,7 @@ class StructureToSelect {
 		throw new UnsupportedOperationException("can only create table names for TableDefinitions right now");
 	}
 
-	private Condition createJoinCondition(
+	private Condition createJoinCondition(TableLike parentTable, TableLike childQuery,
 			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticJoin analyticJoin) {
 
 		Condition condition = null;
@@ -155,33 +155,31 @@ class StructureToSelect {
 
 			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticColumn left = joinCondition
 					.getLeft();
-			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticColumn right = joinCondition.getRight();
+			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticColumn right = joinCondition
+					.getRight();
 
-
-			Comparison newCondition = Conditions.isEqual(expressionFor(analyticJoin.getParent(), left), expressionFor(analyticJoin.getChild(), right));
+			Comparison newCondition = Conditions.isEqual(expressionFor(parentTable, left),
+					expressionFor(childQuery, right));
 			if (condition == null) {
 				condition = newCondition;
-			}else {
+			} else {
 				condition = condition.and(newCondition);
 			}
 		}
 		return condition;
 	}
 
-	private Expression expressionFor(AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.Select parent, AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticColumn analyticColumn) {
+	private Expression expressionFor(TableLike parent,
+			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticColumn analyticColumn) {
 
 		System.out.println("cond-expr \t" + analyticColumn);
 
 		if (analyticColumn instanceof AnalyticStructureBuilder.Literal al) {
 			return SQL.literalOf(al.getValue());
 		}
-//		if (analyticColumn instanceof AnalyticStructureBuilder.ForeignKey fk) {
-//
-//			SqlIdentifier fkColumnName = createFkColumnName(fk);
-//
-//
-//			return fkColumnName;
-//		}
+		if (analyticColumn instanceof AnalyticStructureBuilder.ForeignKey fk) {
+			return parent.column(getAliasFor(fk));
+		}
 		return Expressions.just("shrug");
 	}
 
@@ -198,7 +196,7 @@ class StructureToSelect {
 			if (analyticColumn instanceof AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.ForeignKey foreignKey) {
 
 				SqlIdentifier columnName = createFkColumnName(foreignKey);
-				String alias = aliasFactory.getAliasFor(foreignKey);
+				String alias = getAliasFor(foreignKey);
 				tableColumns.add(table.column(columnName).as(alias));
 				continue;
 			}
