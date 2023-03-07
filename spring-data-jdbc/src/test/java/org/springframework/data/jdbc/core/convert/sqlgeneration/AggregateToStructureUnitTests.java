@@ -27,26 +27,51 @@ class AggregateToStructureUnitTests {
 	JdbcMappingContext context = new JdbcMappingContext();
 
 	AggregateToStructure ats = new AggregateToStructure(context);
-
-	RelationalPersistentEntity<?> dummyEntity = context.getRequiredPersistentEntity(DummyEntity.class);
+	RelationalPersistentEntity<?> rootEntity;
 
 	@Test
 	void simpleTable() {
+
+		rootEntity = context.getRequiredPersistentEntity(DummyEntity.class);
 		AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.Select select = ats
-				.createSelectStructure(dummyEntity);
+				.createSelectStructure(rootEntity);
 
 		AnalyticAssertions.assertThat(select) //
 				.hasExactColumns( //
 						path("id"), //
 						path("aColumn"))
-				.isInstanceOf(AnalyticStructureBuilder.TableDefinition.class)
-				.hasId(new PersistentPropertyPathExtension(context, context.getPersistentPropertyPath( "id", dummyEntity.getType())));
+				.isInstanceOf(AnalyticStructureBuilder.TableDefinition.class) //
+				.hasId(new PersistentPropertyPathExtension(context,
+						context.getPersistentPropertyPath("id", rootEntity.getType())));
+	}
+
+	@Test
+	void singleReference() {
+
+		rootEntity = context.getRequiredPersistentEntity(SingleReference.class);
+		AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.Select select = ats
+				.createSelectStructure(rootEntity);
+
+		AnalyticAssertions.assertThat(select) //
+				.hasAtLeastColumns( //
+						path("id"), //
+						path("dummy.id"), //
+						path("dummy.aColumn") //
+				).isInstanceOf(AnalyticStructureBuilder.AnalyticJoin.class);
+
+		AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.Select child = ((AnalyticStructureBuilder.AnalyticJoin) select)
+				.getChild();
+
+		AnalyticAssertions.assertThat(child)
+				.hasExactColumns( //
+						path("dummy.id"), //
+						path("dummy.aColumn") //
+				);
 	}
 
 	private PersistentPropertyPathExtension path(String path) {
-		return new PersistentPropertyPathExtension(context, context.getPersistentPropertyPath(path, dummyEntity.getType()));
+		return new PersistentPropertyPathExtension(context, context.getPersistentPropertyPath(path, rootEntity.getType()));
 	}
-
 
 	static class DummyEntity {
 		@Id Long id;
@@ -54,4 +79,8 @@ class AggregateToStructureUnitTests {
 		String aColumn;
 	}
 
+	static class SingleReference {
+		@Id Long id;
+		DummyEntity dummy;
+	}
 }

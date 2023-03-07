@@ -25,6 +25,7 @@ import org.assertj.core.api.AbstractAssert;
 import org.assertj.core.error.BasicErrorMessageFactory;
 import org.assertj.core.internal.Failures;
 import org.assertj.core.internal.StandardComparisonStrategy;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.lang.Nullable;
 
 import static org.assertj.core.api.Assertions.*;
@@ -39,14 +40,23 @@ public class AnalyticStructureBuilderSelectAssert<T, C>
 
 	AnalyticStructureBuilderSelectAssert<T, C> hasExactColumns(Object... expected) {
 
+		return containsPatternsExactly(objectsToPatterns(expected));
+	}
+
+	AnalyticStructureBuilderSelectAssert<T, C> hasAtLeastColumns(Object... expected) {
+
+		return containsPatterns(objectsToPatterns(expected));
+	}
+
+	@NotNull
+	private static Pattern[] objectsToPatterns(Object[] expected) {
 		Pattern[] patterns = new Pattern[expected.length];
 		for (int i = 0; i < expected.length; i++) {
 
 			Object object = expected[i];
 			patterns[i] = object instanceof Pattern ? (Pattern) object : new BasePattern(object);
 		}
-
-		return containsPatternsExactly(patterns);
+		return patterns;
 	}
 
 	AnalyticStructureBuilderSelectAssert<T, C> hasStructure(StructurePattern pattern) {
@@ -85,6 +95,37 @@ public class AnalyticStructureBuilderSelectAssert<T, C>
 		throw Failures.instance().failure(info, ColumnsShouldContainExactly
 				.columnsShouldContainExactly(actual.getColumns(), patterns, notFound, availableColumns));
 	}
+
+	public AnalyticStructureBuilderSelectAssert<T,C> containsPatterns(Pattern ... patterns) {
+
+		List<? extends AnalyticStructureBuilder<?, ?>.AnalyticColumn> availableColumns = actual.getColumns();
+
+		List<Pattern> notFound = new ArrayList<>();
+		for (Pattern pattern : patterns) {
+
+			boolean found = false;
+			for (AnalyticStructureBuilder<?, ?>.AnalyticColumn actualColumn : availableColumns) {
+
+				if (pattern.matches(actual, actualColumn)) {
+					found = true;
+					availableColumns.remove(actualColumn);
+					break;
+				}
+			}
+
+			if (!found) {
+				notFound.add(pattern);
+			}
+		}
+
+		if (notFound.isEmpty()) {
+			return this;
+		}
+
+		throw Failures.instance().failure(info, ColumnsShouldContainExactly
+				.columnsShouldContainExactly(actual.getColumns(), patterns, notFound, availableColumns));
+	}
+
 
 	private static class ColumnsShouldContainExactly extends BasicErrorMessageFactory {
 
