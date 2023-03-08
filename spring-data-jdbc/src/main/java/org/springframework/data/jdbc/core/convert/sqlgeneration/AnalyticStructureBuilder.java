@@ -174,6 +174,12 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 		nodeRoot.buildForeignKeys(null, new ArrayList<>());
 	}
 
+	private AnalyticColumn derived(AnalyticColumn column) {
+		if (column instanceof DerivedColumn || column instanceof Literal) {
+			return column;
+		}
+		return new DerivedColumn(column);
+	}
 	abstract class Select {
 
 		abstract List<? extends AnalyticColumn> getColumns();
@@ -198,6 +204,7 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 		abstract List<AnalyticColumn> getForeignKey();
 
 		abstract void buildRowNumbers();
+
 	}
 
 	abstract class SingleTableSelect extends Select {
@@ -387,10 +394,11 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 		public List<? extends AnalyticColumn> getColumns() {
 
 			List<AnalyticColumn> result = new ArrayList<>();
-			parent.getColumns().forEach(c -> result.add(new DerivedColumn(c)));
-			child.getColumns().forEach(c -> result.add(new DerivedColumn(c)));
-			columnsFromJoin.forEach(c -> result.add(new DerivedColumn(c)));
-			foreignKey.forEach(c -> result.add(new DerivedColumn(c)));
+			parent.getColumns().forEach(c -> result.add(parent instanceof TableDefinition ? c : new DerivedColumn(c)));
+			child.getColumns().forEach(c -> result.add(child instanceof TableDefinition ? c : new DerivedColumn(c)));
+			columnsFromJoin.forEach(c -> result.add(c));
+			foreignKey.forEach(c -> result.add(c));
+
 			result.add(rowNumber);
 			return result;
 		}
@@ -464,7 +472,7 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 			child.buildRowNumbers();
 
 			rowNumber = new Greatest(parent.getRowNumber(), child.getRowNumber());
-			conditions.add(new JoinCondition(parent.getRowNumber(), child.getRowNumber()));
+			conditions.add(new JoinCondition(derived(parent.getRowNumber()), derived( child.getRowNumber())));
 
 		}
 
@@ -523,13 +531,13 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 			this.table = table;
 
 			nodeParentLookUp.put(table, this);
-
 		}
 
 		@Override
 		List<? extends AnalyticColumn> getColumns() {
 
-			ArrayList<AnalyticColumn> allColumns = new ArrayList<>(table.getColumns());
+			ArrayList<AnalyticColumn> allColumns = new ArrayList<>();
+			table.getColumns().forEach(c -> allColumns.add(c));
 
 			Assert.state(rowNumber != null, "Rownumber must not be null at this state");
 			allColumns.add(rowNumber);

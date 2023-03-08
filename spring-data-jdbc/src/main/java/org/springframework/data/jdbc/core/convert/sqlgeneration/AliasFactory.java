@@ -40,8 +40,9 @@ public class AliasFactory {
 			new DefaultAliasFactory<>(AnalyticStructureBuilder.ForeignKey.class, "FK"),
 			new DefaultAliasFactory<>(AnalyticStructureBuilder.AnalyticView.class, "V"),
 			new DefaultAliasFactory<>(AnalyticStructureBuilder.RowNumber.class, "RN"),
-			new DelegatingAliasFactory<>(PersistentPropertyPathExtension.class,  pppe -> pppe.getRequiredPersistentPropertyPath()),
-			new DelegatingAliasFactory<>(PersistentPropertyPath.class , ppp -> ppp.getRequiredLeafProperty()),
+			new DelegatingAliasFactory<>(PersistentPropertyPathExtension.class, pppe -> pppe.getRequiredPersistentPropertyPath()),
+			new DelegatingAliasFactory<>(PersistentPropertyPath.class, ppp -> ppp.getRequiredLeafProperty()),
+			new DelegatingAliasFactory<>(AnalyticStructureBuilder.BaseColumn.class, (AnalyticStructureBuilder.BaseColumn bc) -> bc.getColumn()),
 			new DefaultAliasFactory<>(RelationalPersistentProperty.class, "C", pp -> pp.getName()),
 			new DefaultAliasFactory<>(RelationalPersistentEntity.class, "T", rpe -> rpe.getTableName().toString()));
 
@@ -68,7 +69,7 @@ public class AliasFactory {
 			}
 		}
 
-		throw new UnsupportedOperationException("can't generate alias for " + key);
+		throw new UnsupportedOperationException("can't generate alias for " + key + " of type " + key.getClass());
 	}
 
 	private String sanitize(String baseTableName) {

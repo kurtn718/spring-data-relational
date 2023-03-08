@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -224,7 +225,7 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 		private final RelationalPersistentEntity<?> currentEntity;
 		final Map<RelationalPersistentProperty, String> paths = new HashMap<>();
 
-		final List<Object> specialColumns = new ArrayList<>();
+		final List<Function<AliasFactory, ColumnSpec>> specialColumns = new ArrayList<>();
 
 		public ColumnsSpec(RelationalMappingContext context, RelationalPersistentEntity<?> entity) {
 
@@ -245,19 +246,24 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 
 		public ColumnsSpec rowNumber(String dummy) {
 
-			specialColumns.add("row number");
+			specialColumns.add(f -> new RowNumberSpec(f, dummy));
 			return this;
 		}
 
 		public void foreach(AliasFactory aliasFactory, Consumer<? super ColumnSpec> specConsumer) {
 
 			paths.keySet().forEach(p -> specConsumer.accept(new PropertyBasedColumn(aliasFactory, p)));
-			specialColumns.forEach(o -> specConsumer.accept(new RowNumberSpec(aliasFactory, o)));
+			specialColumns.forEach(o -> specConsumer.accept(o.apply(aliasFactory)));
 		}
 
 		@Override
 		public String toString() {
 			return paths.values().toString();
+		}
+
+		public ColumnsSpec alias(String alias) {
+			specialColumns.add(f -> new AliasSpec(f, alias));
+			return this;
 		}
 	}
 
@@ -285,6 +291,15 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 		@Override
 		public boolean matches(ActualColumn actualColumn) {
 			return actualColumn.expression.startsWith("ROW_NUMBER() OVER (PARTITION BY");
+		}
+
+	}
+
+	private record AliasSpec(AliasFactory aliasFactory, String alias) implements ColumnSpec {
+
+		@Override
+		public boolean matches(ActualColumn actualColumn) {
+			return actualColumn.expression.endsWith(alias);
 		}
 
 	}

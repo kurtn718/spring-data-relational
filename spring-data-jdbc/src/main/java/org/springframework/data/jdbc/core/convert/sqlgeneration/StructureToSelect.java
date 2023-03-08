@@ -57,9 +57,7 @@ class StructureToSelect {
 	}
 
 	private SelectBuilder.BuildSelect createView(AnalyticStructureBuilder.AnalyticView analyticView) {
-		return createSelect(
-				(AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.Select) analyticView
-						.getFroms().get(0));
+		return createSimpleSelect(analyticView);
 	}
 
 	private SelectBuilder.SelectFromAndJoinCondition createJoin(
@@ -69,12 +67,13 @@ class StructureToSelect {
 		SelectBuilder.BuildSelect childSelect = createSelect(child);
 		InlineQuery childQuery = InlineQuery.create(childSelect.build(), getAliasFor(child));
 
-		Collection<Expression> columns = getSelectList(child, childQuery, false);
+		// Collection<Expression> columns = getSelectList(child, childQuery);
 
 		AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.Select parent = analyticJoin
 				.getParent();
 		TableLike parentTable = tableFor(parent);
-		columns.addAll(getSelectList(parent, parentTable, false));
+		// columns.addAll(getSelectList(parent, parentTable));
+		Collection<Expression> columns = createSelectExpressionList(analyticJoin.getColumns(), parentTable);
 
 		SelectBuilder.SelectFromAndJoin selectAndParent = StatementBuilder.select(columns).from(parentTable);
 
@@ -88,52 +87,75 @@ class StructureToSelect {
 
 	private Collection<Expression> getSelectList(
 			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.Select parent,
-			TableLike parentTable, boolean declareAlias) {
+			TableLike parentTable) {
 
 		Collection<Expression> tableColumns = new ArrayList<>();
 
-		for (AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticColumn analyticColumn : parent
-				.getColumns()) {
+		List<? extends AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticColumn> parentColumns = parent
+				.getColumns();
+		for (AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticColumn analyticColumn : parentColumns) {
 
 			if (analyticColumn instanceof AnalyticStructureBuilder.ForeignKey fk) {
 				System.out.println("for now skipping foreign key" + fk);
 				continue;
 			}
-			Expression column;
-
-			PersistentPropertyPathExtension property = analyticColumn.getColumn();
-			if (property == null) {
-				// TODO: handle all the special join management columns.
-				if (analyticColumn instanceof AnalyticStructureBuilder.RowNumber rn) {
-
-					Column[] partitionBys = ((Stream<Column>) rn.getPartitionBy().stream()
-							.map(ac -> parentTable.column(aliasFactory.getAliasFor(ac)))).toArray(Column[]::new);
-
-					column = AnalyticFunction.create("ROW_NUMBER").partitionBy(partitionBys).as(aliasFactory.getAliasFor(rn));
-				} else {
-					throw new UnsupportedOperationException("Can't handle " + analyticColumn);
-				}
-			} else {
-				column = createColumn(parentTable, property, declareAlias);
-			}
-
+			Expression column = createColumn(parentTable, analyticColumn);
 			tableColumns.add(column);
 		}
 		return tableColumns;
 	}
 
-	private Column createColumn(TableLike parentTable, PersistentPropertyPathExtension path, boolean declareAlias) {
+	private Expression createColumn(TableLike table,
+			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticColumn analyticColumn) {
+
+		if (analyticColumn instanceof AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.ForeignKey foreignKey) {
+
+			SqlIdentifier columnName = createFkColumnName(foreignKey);
+			String alias = getAliasFor(foreignKey);
+			return table.column(columnName).as(alias);
+		}
+		if (analyticColumn instanceof AnalyticStructureBuilder.DerivedColumn derivedColumn) {
+			return createAliasExpression(derivedColumn);
+		}
+		if (analyticColumn instanceof AnalyticStructureBuilder.Literal al) {
+			return SQL.literalOf(al.getValue());
+		}
+		PersistentPropertyPathExtension property = analyticColumn.getColumn();
+		if (property != null) {
+			return createSimpleColumn(table, property);
+		}
+		if (analyticColumn instanceof AnalyticStructureBuilder.RowNumber rn) {
+
+			return createRownumberExpression(table, rn);
+		}
+		if (analyticColumn instanceof AnalyticStructureBuilder.Greatest gt) {
+			return Expressions.just("greatest");
+		} else {
+			throw new UnsupportedOperationException("Can't handle " + analyticColumn);
+		}
+
+	}
+
+	private Expression createAliasExpression(AnalyticStructureBuilder.DerivedColumn derivedColumn) {
+		return Expressions.just(aliasFactory.getAliasFor(derivedColumn.column));
+	}
+
+	private Expression createRownumberExpression(TableLike parentTable, AnalyticStructureBuilder.RowNumber rn) {
+		Expression column;
+		Column[] partitionBys = ((Stream<Column>) rn.getPartitionBy().stream()
+				.map(ac -> parentTable.column(aliasFactory.getAliasFor(ac)))).toArray(Column[]::new);
+
+		column = AnalyticFunction.create("ROW_NUMBER").partitionBy(partitionBys).as(aliasFactory.getAliasFor(rn));
+		return column;
+	}
+
+	private Column createSimpleColumn(TableLike parentTable, PersistentPropertyPathExtension path) {
 
 		String alias = getAliasFor(path);
 
-		if (declareAlias) {
-
-			return parentTable //
-					.column(path.getColumnName()) //
-					.as(alias);
-		} else {
-			return parentTable.column(alias);
-		}
+		return parentTable //
+				.column(path.getColumnName()) //
+				.as(alias);
 	}
 
 	private TableLike tableFor(
@@ -141,6 +163,10 @@ class StructureToSelect {
 
 		if (parent instanceof AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.TableDefinition tableDefinition) {
 			return Table.create(tableDefinition.getTable().getTableName()).as(getAliasFor(parent));
+		}
+
+		if (parent instanceof AnalyticStructureBuilder.AnalyticView av) {
+			return tableFor((AnalyticStructureBuilder.TableDefinition) av.getParent());
 		}
 
 		throw new UnsupportedOperationException("can only create table names for TableDefinitions right now");
@@ -158,7 +184,7 @@ class StructureToSelect {
 			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticColumn right = joinCondition
 					.getRight();
 
-			Comparison newCondition = Conditions.isEqual(expressionFor(parentTable, left), expressionFor(childQuery, right));
+			Comparison newCondition = Conditions.isEqual(createColumn(parentTable, left), createColumn(childQuery, right));
 			if (condition == null) {
 				condition = newCondition;
 			} else {
@@ -168,54 +194,28 @@ class StructureToSelect {
 		return condition;
 	}
 
-	private Expression expressionFor(TableLike parent,
-			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticColumn analyticColumn) {
-
-		if (analyticColumn instanceof AnalyticStructureBuilder.Literal al) {
-			return SQL.literalOf(al.getValue());
-		}
-		if (analyticColumn instanceof AnalyticStructureBuilder.ForeignKey fk) {
-			return parent.column(getAliasFor(fk));
-		}
-		if (analyticColumn instanceof AnalyticStructureBuilder.RowNumber rn) {
-			return parent.column(getAliasFor(rn));
-		}
-
-		System.out.println("unresolved cond-expr \t" + analyticColumn);
-
-		return Expressions.just("shrug");
-	}
-
 	private SelectBuilder.SelectFromAndJoin createSimpleSelect(
-			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.TableDefinition tableDefinition) {
+			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.Select select) {
 
-		List<? extends AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticColumn> analyticColumns = tableDefinition
+		List<? extends AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticColumn> analyticColumns = select
 				.getColumns();
 
-		Collection<Expression> tableColumns = new ArrayList<>();
-		TableLike table = tableFor(tableDefinition);
-		for (AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticColumn analyticColumn : analyticColumns) {
+		TableLike table = tableFor(select);
 
-			if (analyticColumn instanceof AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.ForeignKey foreignKey) {
+		Collection<Expression> selectExpressionList = createSelectExpressionList(analyticColumns, table);
 
-				SqlIdentifier columnName = createFkColumnName(foreignKey);
-				String alias = getAliasFor(foreignKey);
-				tableColumns.add(table.column(columnName).as(alias));
-				continue;
-			}
-			PersistentPropertyPathExtension property = analyticColumn.getColumn();
-			if (property == null) {
-				// TODO: handle all the special join management columns.
-				continue;
-			}
-			SqlIdentifier columnName = property.getColumnName();
-			Column column = table.column(columnName).as(getAliasFor(property));
-			tableColumns.add(column);
-
-		}
-
-		SelectBuilder.SelectFromAndJoin from = StatementBuilder.select(tableColumns).from(table);
+		SelectBuilder.SelectFromAndJoin from = StatementBuilder.select(selectExpressionList).from(table);
 		return from;
+	}
+
+	private Collection<Expression> createSelectExpressionList(
+			List<? extends AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticColumn> analyticColumns,
+			TableLike table) {
+		Collection<Expression> selectExpressionList = new ArrayList<>();
+		for (AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticColumn analyticColumn : analyticColumns) {
+			selectExpressionList.add(createColumn(table, analyticColumn));
+		}
+		return selectExpressionList;
 	}
 
 	private static SqlIdentifier createFkColumnName(

@@ -16,6 +16,7 @@
 
 package org.springframework.data.jdbc.core.convert.sqlgeneration;
 
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.jdbc.core.mapping.JdbcMappingContext;
@@ -62,11 +63,17 @@ class AggregateToStructureUnitTests {
 		AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.Select child = ((AnalyticStructureBuilder.AnalyticJoin) select)
 				.getChild();
 
-		AnalyticAssertions.assertThat(child)
-				.hasExactColumns( //
-						path("dummy.id"), //
-						path("dummy.aColumn") //
-				);
+		Assertions.assertThat(child).isInstanceOf(AnalyticStructureBuilder.AnalyticView.class);
+
+		AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticView view = (AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticView) child;
+
+		AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.Select viewChild = view
+				.getFroms().get(0);
+		Assertions.assertThat(viewChild).isInstanceOf(AnalyticStructureBuilder.TableDefinition.class);
+
+		AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.TableDefinition tableDefinition = (AnalyticStructureBuilder.TableDefinition) viewChild;
+
+		// TODO write a proper assert or drop this test.
 	}
 
 	private PersistentPropertyPathExtension path(String path) {

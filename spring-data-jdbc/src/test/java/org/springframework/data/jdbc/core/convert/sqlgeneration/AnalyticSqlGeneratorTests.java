@@ -84,7 +84,7 @@ join condition
 								.property("id") //
 								.property("dummy.id") //
 								.property("dummy.aColumn") //
-								.rowNumber("row number") //
+								.alias("RN0001") //
 				).assignsAliasesExactlyOnce() //
 				.selectsInternally("dummy", "single_reference")
 
