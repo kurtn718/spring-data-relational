@@ -121,29 +121,24 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 
 	public SqlAssert assignsAliasesExactlyOnce() {
 
-		// TODO: this should eventually test that all inner columns are aliased exactly once when they are originally
-		// selected.
-		List<ParsedColumn> aliasedColumns = new ArrayList<>();
-
-		List<ParsedColumn> parsedColumns = collectActualColumns();
-		for (ParsedColumn column : parsedColumns) {
-			// TODO: this should be a "is simple column" method in the ActualColumn class
-			if (!column.alias.isEmpty() && column.column.contains("00")) {
-				aliasedColumns.add(column);
+		List<SelectItem> wronglyAliasedSelectItems = allInternalSelectItems(getSelect()).filter(si -> {
+			if (si instanceof SelectExpressionItem selectExpressionItem) {
+				if (selectExpressionItem.getExpression().toString().matches("^[A-Z]{1,2}\\d{4}(_[A-Z]*)?$"))
+					return selectExpressionItem.getAlias() !=null;
+				else
+					return !selectExpressionItem.getAlias().getName().matches("^[A-Z]{1,2}\\d{4}(_[A-Z]*)?$");
 			}
-		}
+			return true;
+		}).collect(Collectors.toList());
 
-		assertThat(aliasedColumns)
-				.describedAs("The columns %s should not have aliases, but %s have.", parsedColumns, aliasedColumns).isEmpty();
+		assertThat(wronglyAliasedSelectItems).describedAs("Aliased expressions should be aliased again").isEmpty();
 
 		return this;
 	}
 
 	public SqlAssert selectsInternally(String pathToEntity, String columnName) {
 
-		Optional<Column> optionalColumn = allInternalSelectItems(getSelect()).map(x -> {
-			return x;
-		}).flatMap(si -> {
+		Optional<Column> optionalColumn = allInternalSelectItems(getSelect()).flatMap(si -> {
 
 			if (si instanceof SelectExpressionItem sei) {
 				if (sei.getExpression()instanceof Column c)
