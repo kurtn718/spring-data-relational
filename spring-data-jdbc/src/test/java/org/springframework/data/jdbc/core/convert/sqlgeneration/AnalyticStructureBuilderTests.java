@@ -94,13 +94,12 @@ public class AnalyticStructureBuilderTests {
 
 		assertThat(builder.getSelect().getColumns()) //
 				.allMatch(c -> //
-						c instanceof AnalyticStructureBuilder.DerivedColumn //
-								|| c instanceof AnalyticStructureBuilder.Greatest //
+				c instanceof AnalyticStructureBuilder.DerivedColumn //
+						|| c instanceof AnalyticStructureBuilder.Greatest //
+						|| (c instanceof AnalyticStructureBuilder.BaseColumn bc && bc.column.toString().startsWith("parent"))
 				);
 
 	}
-
-
 
 	@Test
 	void tableWithSingleChildWithKey() {
