@@ -55,28 +55,6 @@ class AnalyticSqlGeneratorTests {
 
 		System.out.println(sql);
 
-		/*
-SELECT
-  V0001.C0001_ACOLUMN,
-  V0001.C0002_ID,
-  ROW_NUMBER() OVER(PARTITION BY V0001.FK0001) AS RN0001,
-  T0002_SINGLEREFERENCE.C0003_ID
-FROM single_reference T0002_SINGLEREFERENCE
-FULL OUTER JOIN (
-  SELECT
-    T0001_DUMMYENTITY.a_column AS C0001_ACOLUMN,
-    T0001_DUMMYENTITY.id AS C0002_ID,
-    T0001_DUMMYENTITY.id AS FK0001
-  FROM dummy_entity T0001_DUMMYENTITY
-) V0001 ON 1 = 2
-
-
-todo
-join condition
- rn = 1
- t2.id = t1.single_reference_id
-*/
-
 		assertThatParsed(sql) //
 				.withAliases(aliasFactory) //
 				.hasExactColumns( //
@@ -85,6 +63,9 @@ join condition
 								.property("dummy.id") //
 								.property("dummy.aColumn") //
 								.alias("RN0001") //
+								.fk("FK0001")
+								.greatest()
+								.greatest()
 				).assignsAliasesExactlyOnce() //
 				.selectsInternally("dummy", "single_reference")
 

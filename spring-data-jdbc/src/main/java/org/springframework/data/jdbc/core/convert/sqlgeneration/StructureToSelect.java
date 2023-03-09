@@ -17,6 +17,7 @@
 package org.springframework.data.jdbc.core.convert.sqlgeneration;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Stream;
@@ -105,6 +106,7 @@ class StructureToSelect {
 		return tableColumns;
 	}
 
+	// TODO: table is not required when the column is derived
 	private Expression createColumn(TableLike table,
 			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticColumn analyticColumn) {
 
@@ -129,7 +131,11 @@ class StructureToSelect {
 			return createRownumberExpression(table, rn);
 		}
 		if (analyticColumn instanceof AnalyticStructureBuilder.Greatest gt) {
-			return Expressions.just("greatest");
+
+			Expression leftColumn = createColumn(table, gt.left);
+			Expression rightColumn = createColumn(table, gt.right);
+
+			return SimpleFunction.create("GREATEST", Arrays.asList(leftColumn, rightColumn));
 		} else {
 			throw new UnsupportedOperationException("Can't handle " + analyticColumn);
 		}

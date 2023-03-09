@@ -43,6 +43,7 @@ import java.util.stream.Stream;
 import org.assertj.core.api.AbstractAssert;
 import org.assertj.core.api.Assertions;
 import org.jetbrains.annotations.NotNull;
+import org.springframework.data.mapping.Alias;
 import org.springframework.data.mapping.PersistentPropertyPath;
 import org.springframework.data.relational.core.mapping.RelationalMappingContext;
 import org.springframework.data.relational.core.mapping.RelationalPersistentEntity;
@@ -128,7 +129,7 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 		List<ActualColumn> actualColumns = collectActualColumns();
 		for (ActualColumn column : actualColumns) {
 			// TODO: this should be a "is simple column" method in the ActualColumn class
-			if (!column.alias.isEmpty() && !column.expression.startsWith("ROW_NUMBER() OVER (PARTITION BY ")) {
+			if (!column.alias.isEmpty() && column.column.contains("00")) {
 				aliasedColumns.add(column);
 			}
 		}
@@ -246,7 +247,7 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 
 		public ColumnsSpec rowNumber(String dummy) {
 
-			specialColumns.add(f -> new RowNumberSpec(f, dummy));
+			specialColumns.add(f -> PrefixSpec.rowNumberSpec(f, dummy));
 			return this;
 		}
 
@@ -263,6 +264,16 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 
 		public ColumnsSpec alias(String alias) {
 			specialColumns.add(f -> new AliasSpec(f, alias));
+			return this;
+		}
+
+		public ColumnsSpec fk(String alias) {
+			specialColumns.add(f -> new AliasSpec(f, alias));
+			return this;
+		}
+
+		public ColumnsSpec greatest() {
+			specialColumns.add(f -> PrefixSpec.greatestSpec(f, "greatest has unknown alias"));
 			return this;
 		}
 	}
@@ -286,13 +297,25 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 
 	}
 
-	private record RowNumberSpec(AliasFactory aliasFactory, Object someObject) implements ColumnSpec {
+	private record PrefixSpec(AliasFactory aliasFactory, Object someObject, String prefix) implements ColumnSpec {
+
+		static PrefixSpec rowNumberSpec(AliasFactory aliasFactory, Object someObject) {
+			return new PrefixSpec(aliasFactory, someObject, "ROW_NUMBER() OVER (PARTITION BY");
+		}
+
+		static PrefixSpec greatestSpec(AliasFactory aliasFactory, Object someObject) {
+			return new PrefixSpec(aliasFactory, someObject, "GREATEST(");
+		}
 
 		@Override
 		public boolean matches(ActualColumn actualColumn) {
-			return actualColumn.expression.startsWith("ROW_NUMBER() OVER (PARTITION BY");
+			return actualColumn.expression.startsWith(prefix);
 		}
 
+		@Override
+		public String toString() {
+			return someObject.toString();
+		}
 	}
 
 	private record AliasSpec(AliasFactory aliasFactory, String alias) implements ColumnSpec {
