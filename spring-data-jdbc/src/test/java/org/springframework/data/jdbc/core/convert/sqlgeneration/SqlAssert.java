@@ -43,7 +43,6 @@ import java.util.stream.Stream;
 import org.assertj.core.api.AbstractAssert;
 import org.assertj.core.api.Assertions;
 import org.jetbrains.annotations.NotNull;
-import org.springframework.data.mapping.Alias;
 import org.springframework.data.mapping.PersistentPropertyPath;
 import org.springframework.data.relational.core.mapping.RelationalMappingContext;
 import org.springframework.data.relational.core.mapping.RelationalPersistentEntity;
@@ -71,22 +70,22 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 
 	public SqlAssert hasExactColumns(ColumnsSpec columnsSpec) {
 
-		List<ActualColumn> actualColumns = collectActualColumns();
+		List<ParsedColumn> parsedColumns = collectActualColumns();
 
 		List<ColumnSpec> notFound = new ArrayList<>();
 
 		// check normal property based columns
 		columnsSpec.foreach(aliasFactory, (ColumnSpec columnSpec) -> {
-			for (ActualColumn currentColumn : actualColumns) {
+			for (ParsedColumn currentColumn : parsedColumns) {
 				if (columnSpec.matches(currentColumn)) {
-					actualColumns.remove(currentColumn);
+					parsedColumns.remove(currentColumn);
 					return;
 				}
 			}
 			notFound.add(columnSpec);
 		});
 
-		if (actualColumns.isEmpty() && notFound.isEmpty()) {
+		if (parsedColumns.isEmpty() && notFound.isEmpty()) {
 			return this;
 		}
 
@@ -94,10 +93,10 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 		if (!notFound.isEmpty()) {
 			failureMessage += "no columns for %s were found";
 		}
-		if (!notFound.isEmpty() && !actualColumns.isEmpty()) {
+		if (!notFound.isEmpty() && !parsedColumns.isEmpty()) {
 			failureMessage += "%n and ";
 		}
-		if (!actualColumns.isEmpty()) {
+		if (!parsedColumns.isEmpty()) {
 			failureMessage += "the columns %s where not expected.";
 		}
 
@@ -109,13 +108,13 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 			}
 		}).collect(Collectors.joining(", "));
 
-		if (!notFound.isEmpty() && !actualColumns.isEmpty()) {
-			throw failure(failureMessage, getSelect().toString(), columnsSpec, notFoundString, actualColumns);
+		if (!notFound.isEmpty() && !parsedColumns.isEmpty()) {
+			throw failure(failureMessage, getSelect().toString(), columnsSpec, notFoundString, parsedColumns);
 		}
 		if (!notFound.isEmpty()) {
 			throw failure(failureMessage, getSelect().toString(), columnsSpec, notFoundString);
 		} else {
-			throw failure(failureMessage, getSelect().toString(), columnsSpec, actualColumns);
+			throw failure(failureMessage, getSelect().toString(), columnsSpec, parsedColumns);
 		}
 
 	}
@@ -124,10 +123,10 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 
 		// TODO: this should eventually test that all inner columns are aliased exactly once when they are originally
 		// selected.
-		List<ActualColumn> aliasedColumns = new ArrayList<>();
+		List<ParsedColumn> aliasedColumns = new ArrayList<>();
 
-		List<ActualColumn> actualColumns = collectActualColumns();
-		for (ActualColumn column : actualColumns) {
+		List<ParsedColumn> parsedColumns = collectActualColumns();
+		for (ParsedColumn column : parsedColumns) {
 			// TODO: this should be a "is simple column" method in the ActualColumn class
 			if (!column.alias.isEmpty() && column.column.contains("00")) {
 				aliasedColumns.add(column);
@@ -135,7 +134,7 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 		}
 
 		assertThat(aliasedColumns)
-				.describedAs("The columns %s should not have aliases, but %s have.", actualColumns, aliasedColumns).isEmpty();
+				.describedAs("The columns %s should not have aliases, but %s have.", parsedColumns, aliasedColumns).isEmpty();
 
 		return this;
 	}
@@ -185,19 +184,19 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 	/**
 	 * @return a list of select list elements that are queried for. Doesn't look at internal queries
 	 */
-	private List<ActualColumn> collectActualColumns() {
+	private List<ParsedColumn> collectActualColumns() {
 
-		List<ActualColumn> actualColumns = new ArrayList<>();
+		List<ParsedColumn> parsedColumns = new ArrayList<>();
 		for (SelectItem selectItem : getSelect().getSelectItems()) {
 			selectItem.accept(new SelectItemVisitorAdapter() {
 				@Override
 				public void visit(SelectExpressionItem item) {
-					actualColumns.add(new ActualColumn(item.getExpression().toString(),
+					parsedColumns.add(new ParsedColumn(item.getExpression().toString(),
 							item.getAlias() == null ? "" : item.getAlias().toString()));
 				}
 			});
 		}
-		return actualColumns;
+		return parsedColumns;
 	}
 
 	public SqlAssert selectsFrom(String tableName) {
@@ -279,17 +278,17 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 	}
 
 	private interface ColumnSpec {
-		boolean matches(ActualColumn actualColumn);
+		boolean matches(ParsedColumn parsedColumn);
 	}
 
 	private record PropertyBasedColumn(AliasFactory aliasFactory,
 			RelationalPersistentProperty property) implements ColumnSpec {
 
 		@Override
-		public boolean matches(ActualColumn actualColumn) {
+		public boolean matches(ParsedColumn parsedColumn) {
 
 			String alias = aliasFactory.getAliasFor(property);
-			if (actualColumn.alias.equals(alias) || actualColumn.column.equals(alias)) {
+			if (parsedColumn.alias.equals(alias) || parsedColumn.column.equals(alias)) {
 				return true;
 			}
 			return false;
@@ -308,8 +307,8 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 		}
 
 		@Override
-		public boolean matches(ActualColumn actualColumn) {
-			return actualColumn.expression.startsWith(prefix);
+		public boolean matches(ParsedColumn parsedColumn) {
+			return parsedColumn.expression.startsWith(prefix);
 		}
 
 		@Override
@@ -321,14 +320,14 @@ public class SqlAssert extends AbstractAssert<SqlAssert, Statement> {
 	private record AliasSpec(AliasFactory aliasFactory, String alias) implements ColumnSpec {
 
 		@Override
-		public boolean matches(ActualColumn actualColumn) {
-			return actualColumn.expression.endsWith(alias);
+		public boolean matches(ParsedColumn parsedColumn) {
+			return parsedColumn.expression.endsWith(alias);
 		}
 
 	}
 
-	private record ActualColumn(String expression, String table, String column, String alias) {
-		ActualColumn(String expression, String alias) {
+	private record ParsedColumn(String expression, String table, String column, String alias) {
+		ParsedColumn(String expression, String alias) {
 			this(expression, table(expression), column(expression), alias.replace(" AS ", ""));
 		}
 
