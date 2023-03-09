@@ -40,6 +40,21 @@ class StructureToSelect {
 	SelectBuilder.BuildSelect createSelect(
 			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.Select queryStructure) {
 
+		SelectBuilder.BuildSelect unorderedSelect = createUnorderedSelect(queryStructure);
+
+		if (queryStructure instanceof AnalyticStructureBuilder.AnalyticJoin join) {
+
+			Collection<OrderByField> orderByFields = new ArrayList<>();
+			join.getId().forEach(id -> orderByFields.add(OrderByField.from(createAliasExpression((AnalyticStructureBuilder.DerivedColumn) id))));
+
+			orderByFields.add(OrderByField.from(createAliasExpression(join.getRowNumber())));
+			return ((SelectBuilder.SelectFromAndJoinCondition) unorderedSelect).orderBy(orderByFields);
+		}
+
+		return unorderedSelect;
+	}
+
+	private SelectBuilder.BuildSelect createUnorderedSelect(AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.Select queryStructure) {
 		if (queryStructure instanceof AnalyticStructureBuilder.TableDefinition tableDefinition) {
 			return createSimpleSelect(tableDefinition);
 		}
@@ -64,7 +79,7 @@ class StructureToSelect {
 			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticJoin analyticJoin) {
 
 		AnalyticStructureBuilder.Select child = analyticJoin.getChild();
-		SelectBuilder.BuildSelect childSelect = createSelect(child);
+		SelectBuilder.BuildSelect childSelect = createUnorderedSelect(child);
 		InlineQuery childQuery = InlineQuery.create(childSelect.build(), getAliasFor(child));
 
 		AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.Select parent = analyticJoin

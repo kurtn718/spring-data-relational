@@ -423,8 +423,8 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 		}
 
 		@Override
-		protected AnalyticColumn getRowNumber() {
-			return rowNumber != null ? rowNumber : super.getRowNumber();
+		protected DerivedColumn getRowNumber() {
+			return (DerivedColumn) derived(rowNumber != null ? rowNumber : super.getRowNumber());
 		}
 
 		@Override
