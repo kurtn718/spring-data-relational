@@ -111,7 +111,7 @@ class StructureToSelect {
 			Expression leftColumn = createColumn(table, gt.left);
 			Expression rightColumn = createColumn(table, gt.right);
 
-			return SimpleFunction.create("GREATEST", Arrays.asList(leftColumn, rightColumn));
+			return SimpleFunction.create("GREATEST", Arrays.asList(leftColumn, rightColumn)).as(getAliasFor(gt));
 		} else {
 			throw new UnsupportedOperationException("Can't handle " + analyticColumn);
 		}
@@ -128,7 +128,7 @@ class StructureToSelect {
 		Expression[] partitionBys = (rn.getPartitionBy().stream().map(ac -> createColumn(parentTable, ac)))
 				.toArray(Expression[]::new);
 
-		column = AnalyticFunction.create("ROW_NUMBER").partitionBy(partitionBys).as(aliasFactory.getAliasFor(rn));
+		column = AnalyticFunction.create("ROW_NUMBER").partitionBy(partitionBys).as(getAliasFor(rn));
 		return column;
 	}
 

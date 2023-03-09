@@ -44,7 +44,18 @@ public class AliasFactory {
 			new DelegatingAliasFactory<>(PersistentPropertyPath.class, ppp -> ppp.getRequiredLeafProperty()),
 			new DelegatingAliasFactory<>(AnalyticStructureBuilder.BaseColumn.class, (AnalyticStructureBuilder.BaseColumn bc) -> bc.getColumn()),
 			new DefaultAliasFactory<>(RelationalPersistentProperty.class, "C", pp -> pp.getName()),
-			new DefaultAliasFactory<>(RelationalPersistentEntity.class, "T", rpe -> rpe.getTableName().toString()));
+			new DefaultAliasFactory<>(RelationalPersistentEntity.class, "T", rpe -> rpe.getTableName().toString()),
+			new DefaultAliasFactory<>(AnalyticStructureBuilder.Greatest.class, "GT", gt -> {
+				if (gt.getRight().getColumn() instanceof AnalyticStructureBuilder.RowNumber)
+					return "RN";
+				if (gt.getLeft() instanceof AnalyticStructureBuilder.Literal)
+					return "RN";
+				if (gt.getLeft() instanceof AnalyticStructureBuilder.BaseColumn) {
+					return "FK";
+				}
+				return "unknown";
+			})
+	);
 
 	String getAliasFor(Object key) {
 
