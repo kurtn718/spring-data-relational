@@ -567,7 +567,7 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 
 		@Override
 		List<AnalyticColumn> getForeignKey() {
-			return table.getForeignKey();
+			return table.getForeignKey().stream().map(AnalyticStructureBuilder.this::derived).collect(Collectors.toList());
 		}
 
 		@Override
@@ -587,7 +587,7 @@ class AnalyticStructureBuilder<T, C> implements AnalyticStructure<T, C> {
 
 		@Override
 		protected AnalyticColumn getRowNumber() {
-			return rowNumber;
+			return derived(rowNumber);
 		}
 	}
 

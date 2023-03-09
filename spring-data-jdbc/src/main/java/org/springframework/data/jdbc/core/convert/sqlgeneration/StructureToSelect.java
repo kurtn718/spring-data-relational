@@ -20,7 +20,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.stream.Stream;
 
 import org.springframework.data.relational.core.mapping.PersistentPropertyPathExtension;
 import org.springframework.data.relational.core.mapping.RelationalPersistentEntity;
@@ -68,12 +67,9 @@ class StructureToSelect {
 		SelectBuilder.BuildSelect childSelect = createSelect(child);
 		InlineQuery childQuery = InlineQuery.create(childSelect.build(), getAliasFor(child));
 
-		// Collection<Expression> columns = getSelectList(child, childQuery);
-
 		AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.Select parent = analyticJoin
 				.getParent();
 		TableLike parentTable = tableFor(parent);
-		// columns.addAll(getSelectList(parent, parentTable));
 		Collection<Expression> columns = createSelectExpressionList(analyticJoin.getColumns(), parentTable);
 
 		SelectBuilder.SelectFromAndJoin selectAndParent = StatementBuilder.select(columns).from(parentTable);
@@ -84,26 +80,6 @@ class StructureToSelect {
 
 	private String getAliasFor(Object object) {
 		return aliasFactory.getAliasFor(object);
-	}
-
-	private Collection<Expression> getSelectList(
-			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.Select parent,
-			TableLike parentTable) {
-
-		Collection<Expression> tableColumns = new ArrayList<>();
-
-		List<? extends AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticColumn> parentColumns = parent
-				.getColumns();
-		for (AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.AnalyticColumn analyticColumn : parentColumns) {
-
-			if (analyticColumn instanceof AnalyticStructureBuilder.ForeignKey fk) {
-				System.out.println("for now skipping foreign key" + fk);
-				continue;
-			}
-			Expression column = createColumn(parentTable, analyticColumn);
-			tableColumns.add(column);
-		}
-		return tableColumns;
 	}
 
 	// TODO: table is not required when the column is derived
@@ -146,10 +122,11 @@ class StructureToSelect {
 		return Expressions.just(aliasFactory.getAliasFor(derivedColumn.column));
 	}
 
-	private Expression createRownumberExpression(TableLike parentTable, AnalyticStructureBuilder.RowNumber rn) {
+	private Expression createRownumberExpression(TableLike parentTable,
+			AnalyticStructureBuilder<RelationalPersistentEntity, PersistentPropertyPathExtension>.RowNumber rn) {
 		Expression column;
-		Column[] partitionBys = ((Stream<Column>) rn.getPartitionBy().stream()
-				.map(ac -> parentTable.column(aliasFactory.getAliasFor(ac)))).toArray(Column[]::new);
+		Expression[] partitionBys = (rn.getPartitionBy().stream().map(ac -> createColumn(parentTable, ac)))
+				.toArray(Expression[]::new);
 
 		column = AnalyticFunction.create("ROW_NUMBER").partitionBy(partitionBys).as(aliasFactory.getAliasFor(rn));
 		return column;
