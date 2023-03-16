@@ -90,7 +90,7 @@ class StructureToSelect {
 		SelectBuilder.SelectFromAndJoin selectAndParent = StatementBuilder.select(columns).from(parentTable);
 
 		Condition condition = createJoinCondition(parentTable, childQuery, analyticJoin);
-		return selectAndParent.fullOuterJoin(childQuery).on(condition);
+		return selectAndParent.join(childQuery, Join.JoinType.FULL_OUTER_JOIN).on(condition);
 	}
 
 	private String getAliasFor(Object object) {

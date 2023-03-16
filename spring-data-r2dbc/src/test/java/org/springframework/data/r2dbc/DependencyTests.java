@@ -16,6 +16,7 @@
 package org.springframework.data.r2dbc;
 
 import org.assertj.core.api.SoftAssertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import com.tngtech.archunit.base.DescribedPredicate;
